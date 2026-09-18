@@ -225,3 +225,18 @@ button.ghost:hover { color: var(--ink); }
 .ghostlink:hover { color: var(--ink); }
 textarea { font: inherit; font-size: 13px; line-height: 1.55; resize: vertical; }
 code { background: var(--gold-soft); border-radius: 3px; padding: 1px 5px; font-size: 12px; }
+
+/* toon cards on the list page */
+.toon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px; margin-bottom: 8px; }
+.toon-card {
+  display: block; text-decoration: none; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 15px 17px;
+}
+.toon-card:hover { border-color: var(--gold); }
+.toon-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.toon-name { font: 600 16px/1.2 Cinzel, serif; }
+.toon-line { color: var(--ink); font-size: 13px; margin-top: 6px; }
+.toon-purpose { color: var(--gold); font-size: 12px; margin-top: 3px; }
+.toon-teaser { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 9px;
+  border-top: 1px solid var(--line); padding-top: 9px; }

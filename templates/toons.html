@@ -5,25 +5,22 @@
 <p class="sub">What you're rolling, and what has to happen before November 4.</p>
 
 <h2>Characters</h2>
-{% for c in chars %}
-  <div class="panel" style="margin-bottom:12px">
-    <div class="fact-top">
-      <span class="claim"><a href="{{ url_for('toon', char_id=c['id']) }}">{{ c['name'] or '(name not chosen)' }}</a> — {{ c['race'] }} {{ c['klass'] }}</span>
-      <span class="pill {{ 'confirmed' if c['reserved'] else 'unconfirmed' }}">
-        {{ 'name reserved' if c['reserved'] else 'not reserved' }}</span>
-    </div>
-    <div class="muted small" style="margin-top:4px">
-      {% if c['spec'] %}{{ c['spec'] }} · {% endif %}{{ c['purpose'] }}
-    </div>
-    {% if c['notes'] %}<div class="detail" style="margin-top:8px">{{ c['notes'] }}</div>{% endif %}
-    <div style="margin-top:10px">
-      <form class="inline" method="post" action="{{ url_for('char_reserved', char_id=c['id']) }}">
-        <button class="ghost" type="submit">toggle reserved</button>
-      </form>
-      <a class="ghostlink" href="{{ url_for('toon', char_id=c['id']) }}">open</a>
-    </div>
-  </div>
-{% endfor %}
+<div class="toon-grid">
+  {% for c in chars %}
+    <a class="toon-card" href="{{ url_for('toon', char_id=c['id']) }}">
+      <div class="toon-top">
+        <span class="toon-name">{{ c['name'] or '(name not chosen)' }}</span>
+        <span class="pill {{ 'confirmed' if c['reserved'] else 'unconfirmed' }}">
+          {{ 'reserved' if c['reserved'] else 'not reserved' }}</span>
+      </div>
+      <div class="toon-line">{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}</div>
+      {% if c['purpose'] %}<div class="toon-purpose">{{ c['purpose'] }}</div>{% endif %}
+      {% if c['notes'] %}
+        <div class="toon-teaser">{{ c['notes'].split('||')[0].strip()[:110] }}…</div>
+      {% endif %}
+    </a>
+  {% endfor %}
+</div>
 
 <form class="row" method="post" action="{{ url_for('char_add') }}">
   <input name="name" placeholder="Name">
