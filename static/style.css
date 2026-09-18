@@ -45,10 +45,10 @@ nav {
   overflow-y: auto;
 }
 .brand {
-  font: 700 19px/1.1 Cinzel, serif; letter-spacing: .06em;
+  font: 700 17px/1.15 Cinzel, serif; letter-spacing: .04em;
   text-decoration: none; color: var(--gold);
 }
-.brand span { color: var(--ink); display: block; font-size: 15px; letter-spacing: .18em; }
+.brand span { color: var(--ink); display: block; font-size: 13px; letter-spacing: .2em; }
 .brand-tag { color: var(--muted); font-size: 11px; letter-spacing: .12em;
   text-transform: uppercase; margin: 6px 0 20px; }
 .nav-label { color: var(--muted); font-size: 10px; letter-spacing: .16em;

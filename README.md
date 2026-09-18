@@ -1,4 +1,4 @@
-# WoW Forever
+# Seth's WoW Forever Planner
 
 Planner, prep board and live news for World of Warcraft: Forever (launch Nov 4, 2026).
 

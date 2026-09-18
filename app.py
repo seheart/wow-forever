@@ -1,4 +1,4 @@
-"""WoW Forever — planner, prep board, live news. Flask + SQLite."""
+"""Seth's WoW Forever Planner — race/class planner, prep board, live news. Flask + SQLite."""
 import random
 import sqlite3
 import threading
