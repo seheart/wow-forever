@@ -100,6 +100,7 @@ def init_db():
             klass TEXT DEFAULT '',
             spec TEXT DEFAULT '',
             purpose TEXT DEFAULT '',
+            professions TEXT DEFAULT '',
             priority INTEGER DEFAULT 1,
             reserved INTEGER DEFAULT 0,
             notes TEXT DEFAULT ''
@@ -551,10 +552,11 @@ def toon_edit(char_id):
     f = request.form
     db().execute(
         "UPDATE characters SET name = ?, race = ?, klass = ?, spec = ?, purpose = ?, "
-        "priority = ?, notes = ? WHERE id = ?",
+        "professions = ?, priority = ?, notes = ? WHERE id = ?",
         (f.get("name", "").strip(), f.get("race", "").strip(), f.get("klass", "").strip(),
          f.get("spec", "").strip(), f.get("purpose", "").strip(),
-         int(f.get("priority") or 5), f.get("notes", "").strip(), char_id),
+         f.get("professions", "").strip(), int(f.get("priority") or 5),
+         f.get("notes", "").strip(), char_id),
     )
     db().commit()
     return redirect(url_for("toon", char_id=char_id))

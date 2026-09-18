@@ -40,6 +40,12 @@
       <div class="stat-l">faction</div>
     </div>
   {% endif %}
+  {% if c['professions'] %}
+    <div class="stat wide">
+      <div class="stat-n">{{ c['professions'] }}</div>
+      <div class="stat-l">professions</div>
+    </div>
+  {% endif %}
 </div>
 
 <div class="panel-head section-head">
@@ -123,6 +129,7 @@
       <input name="klass" value="{{ c['klass'] }}" placeholder="Class" size="10">
       <input name="spec" value="{{ c['spec'] }}" placeholder="Spec" size="14">
       <input name="purpose" value="{{ c['purpose'] }}" placeholder="Purpose" size="24">
+      <input name="professions" value="{{ c['professions'] }}" placeholder="Professions" size="24">
       <input name="priority" type="number" value="{{ c['priority'] }}" min="1" max="9"
              aria-label="Priority">
     </div>

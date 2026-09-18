@@ -328,3 +328,8 @@ ol.plan li.done .plan-body { color: var(--muted); }
 ol.plan li.done .plan-body b { text-decoration: line-through; }
 .plan-body { flex: 1; }
 ol.plan form { display: flex; }
+
+.stat.wide { min-width: 0; }
+.stat.wide .stat-n { font-size: 14px; font-family: Inter, sans-serif; font-weight: 600;
+  color: var(--ink); }
+.toon-prof { color: var(--muted); font-size: 12px; margin-top: 3px; }

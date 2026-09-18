@@ -78,6 +78,7 @@
       </div>
       <div class="toon-line">{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}</div>
       {% if c['purpose'] %}<div class="toon-purpose">{{ c['purpose'] }}</div>{% endif %}
+      {% if c['professions'] %}<div class="toon-prof">{{ c['professions'] }}</div>{% endif %}
     </a>
   {% else %}
     <p class="empty">No characters yet.</p>
