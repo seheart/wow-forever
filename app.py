@@ -133,6 +133,9 @@ def seed(con):
         ("2026-09-12", "Announced at BlizzCon 2026", "Revealed alongside Midnight", 1),
         ("2026-09-17", "Beta opens + live Q&A", "Level 20 cap at open; Q&A 10:30am PDT", 1),
         ("2026-10-21", "Beta ends", "Cap raised to 30 partway through", 1),
+        ("2026-10-27", "Early name reservation opens",
+         "Oct 27 - Nov 3 PST. Up to 3 characters, first come first served. "
+         "Requires a paid pack ($29.99+). First and second names supported.", 1),
         ("2026-11-04", "Launch", "3:00 PM PST global", 1),
         ("2026-12-09", "Raids open", "Barrow Deeps (10) and Hyjal Summit (20)", 1),
         ("2027-03-01", "Fourth zone", "Spring 2027, nature unconfirmed", 0),
@@ -240,7 +243,7 @@ def seed(con):
     con.executemany(
         "INSERT INTO checklist (task, due, sort) VALUES (?,?,?)",
         [
-            ("Reserve character names", "2026-11-04", 1),
+            ("Reserve names: Chosan and Arborna", "2026-10-27", 1),
             ("Decide: buy a Skyborne pack, or stay on sub only", "2026-11-04", 2),
             ("Watch Sept 17 Q&A VOD for a dual spec answer", "", 3),
             ("Check whether Sword Spec crit applies to ranged shots", "", 4),
