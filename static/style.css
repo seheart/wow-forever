@@ -48,7 +48,14 @@ nav {
   font: 700 17px/1.15 Cinzel, serif; letter-spacing: .04em;
   text-decoration: none; color: var(--gold);
 }
-.brand span { color: var(--ink); display: block; font-size: 13px; letter-spacing: .2em; }
+.brand .owner {
+  display: block; font: 500 10px/1 Inter, sans-serif; color: var(--muted);
+  letter-spacing: .22em; text-transform: uppercase; margin-bottom: 5px;
+}
+.brand .kind {
+  display: block; color: var(--ink); font-size: 13px; letter-spacing: .22em;
+  text-transform: uppercase; margin-top: 2px;
+}
 .brand-tag { color: var(--muted); font-size: 11px; letter-spacing: .12em;
   text-transform: uppercase; margin: 6px 0 20px; }
 .nav-label { color: var(--muted); font-size: 10px; letter-spacing: .16em;
