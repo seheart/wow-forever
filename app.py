@@ -70,6 +70,18 @@ def init_db():
             detail TEXT DEFAULT '',
             firm INTEGER DEFAULT 1        -- 0 = window/estimate
         );
+        -- Forever is realmless: you pick a ruleset, each one is its own megaserver
+        CREATE TABLE IF NOT EXISTS rulesets (
+            id INTEGER PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            available TEXT DEFAULT 'launch',   -- launch | later
+            summary TEXT DEFAULT '',
+            good TEXT DEFAULT '',
+            bad TEXT DEFAULT '',
+            verdict TEXT DEFAULT '',
+            chosen INTEGER DEFAULT 0,
+            sort INTEGER DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS races (
             id INTEGER PRIMARY KEY,
             slug TEXT UNIQUE NOT NULL,
@@ -156,6 +168,43 @@ def seed(con):
     con.executemany(
         "INSERT INTO roadmap (happens, label, detail, firm) VALUES (?,?,?,?)", roadmap
     )
+
+    con.executemany(
+        "INSERT INTO rulesets (name, available, summary, good, bad, verdict, chosen, sort) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        [
+            ("PvP", "launch",
+             "Contested territory is always dangerous. No flagging, no consent, no opting out.",
+             "The fights happen to you instead of you hunting for them. World PvP actually exists, "
+             "which matters more in Forever than anywhere else because there is no flying to escape "
+             "into. Hardcore characters can transfer here later.",
+             "Locked to ONE FACTION - you cannot roll Horde alts at all. Faction-balance limits "
+             "similar to Season of Discovery may block new character creation if Alliance floods "
+             "the ruleset. Thresholds unpublished.",
+             "The pick. PvP is the whole reason you are playing, and Normal would make you go "
+             "looking for what this hands you.", 1, 1),
+            ("Normal", "launch",
+             "PvP by mutual consent. You flag when you want a fight.",
+             "Both factions available, so alts are unrestricted. Quieter levelling, no ganking "
+             "while you are three mobs deep.",
+             "You have to go find PvP. World PvP is largely dead on consent realms because the "
+             "people who want it are already on PvP.",
+             "Wrong ruleset for how you play. Only pick this if you want the levelling to be "
+             "calm.", 0, 2),
+            ("Roleplay", "launch",
+             "Normal rules plus enforced naming conventions and behaviour standards.",
+             "Best community and the most immersive open world by a distance.",
+             "Strict, GM-enforced naming. Rumpleforeskin and Hotlunch would both be at real risk "
+             "here, and a forced rename on a reserved name burns the slot.",
+             "Avoid. The naming enforcement alone rules it out for this roster.", 0, 3),
+            ("Hardcore", "later",
+             "Permanent death, in a closed-off system of its own. 'Winter and beyond'.",
+             "The highest-stakes version of the game. For the first time a dead character can "
+             "transfer out to PvP rather than only to Normal.",
+             "Not available at launch, no date beyond 'winter'. One mistake ends the character.",
+             "Not a launch decision. Worth revisiting once it ships, since dead characters can "
+             "now land on PvP where you already live.", 0, 4),
+        ])
 
     races = [
         # slug, name, faction, note, sort, classes[(name,new)], racials[(name,kind,effect,tag)]
@@ -405,7 +454,8 @@ def countdowns():
 @app.context_processor
 def inject_nav():
     unseen = db().execute("SELECT COUNT(*) c FROM news WHERE seen = 0").fetchone()["c"]
-    return {"unseen": unseen}
+    picked = db().execute("SELECT name FROM rulesets WHERE chosen = 1").fetchone()
+    return {"unseen": unseen, "picked": picked["name"] if picked else None}
 
 
 # ---------- routes ----------
@@ -488,6 +538,19 @@ def api_news():
         "unseen": row["unseen"] or 0,
         "latest": [dict(r) for r in latest],
     })
+
+
+@app.get("/realm")
+def realm():
+    rows = db().execute("SELECT * FROM rulesets ORDER BY sort").fetchall()
+    return render_template("realm.html", active="realm", rows=rows)
+
+
+@app.post("/realm/<int:ruleset_id>/choose")
+def realm_choose(ruleset_id):
+    db().execute("UPDATE rulesets SET chosen = (id = ?)", (ruleset_id,))
+    db().commit()
+    return redirect(url_for("realm"))
 
 
 @app.get("/planner")

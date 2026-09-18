@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Seth's WoW Forever Planner — Realm{% endblock %}
+{% block content %}
+
+<header class="page-head">
+  <h1>Realm</h1>
+  <p class="sub">Forever is <b>realmless</b>. There is no server list — you pick a ruleset, and
+    each one is a single megaserver with its own auction house, mail, dungeons, raids and open
+    world. No grouping across rulesets or factions, so every toon lives wherever you land.</p>
+</header>
+
+{% if picked %}
+  <div class="picked-banner">Picked: <b>{{ picked }}</b></div>
+{% else %}
+  <div class="picked-banner none">Nothing picked yet</div>
+{% endif %}
+
+{% for r in rows %}
+  <section class="ruleset {{ 'on' if r['chosen'] }}">
+    <div class="ruleset-head">
+      <h3>{{ r['name'] }}</h3>
+      <span class="pill {{ 'confirmed' if r['available'] == 'launch' else 'datamined' }}">
+        {{ 'at launch' if r['available'] == 'launch' else 'later' }}</span>
+      {% if r['chosen'] %}<span class="pill new">picked</span>{% endif %}
+      <form method="post" action="{{ url_for('realm_choose', ruleset_id=r['id']) }}">
+        <button class="{{ 'ghost' if r['chosen'] else '' }}" type="submit">
+          {{ 'Picked' if r['chosen'] else 'Pick this' }}</button>
+      </form>
+    </div>
+
+    <p class="ruleset-sum">{{ r['summary'] }}</p>
+
+    <div class="pros">
+      <div>
+        <div class="pros-l good">Good</div>
+        <p class="small muted">{{ r['good'] }}</p>
+      </div>
+      <div>
+        <div class="pros-l bad">Bad</div>
+        <p class="small muted">{{ r['bad'] }}</p>
+      </div>
+    </div>
+
+    {% if r['verdict'] %}<p class="verdict">{{ r['verdict'] }}</p>{% endif %}
+  </section>
+{% endfor %}
+{% endblock %}

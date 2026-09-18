@@ -15,6 +15,9 @@ Flask + SQLite, single `app.py`. Port **5858**.
   noise dropped and cross-feed duplicate stories collapsed by title. Polls every 5 min in a
   background thread; the badge and corner toast update every 20s without a reload. Feeds can
   be added, refreshed individually, disabled or deleted in the UI.
+- **Realm** — the ruleset decision. Forever is realmless: one megaserver per ruleset, no
+  cross-ruleset or cross-faction grouping. Compares Normal / PvP / Roleplay / Hardcore with
+  pros, cons and a verdict, and records the pick (shown in the nav).
 - **Planner** — race/class matrix and all four racials per race, Alliance / Horde / both. New combos marked ★. Tucked at the bottom of the nav next to the theme toggle; it's reference, not daily use.
 - **My Toons** — character cards, name-reservation state, launch checklist. Each toon has its
   own page at `/toons/<id>` with its notes in blocks, that race's four racials pulled from the
