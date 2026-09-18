@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import feedparser
-from flask import Flask, g, jsonify, redirect, render_template, request, url_for
+from flask import (Flask, abort, g, jsonify, redirect, render_template, request,
+                   url_for)
 
 APP_DIR = Path(__file__).parent
 DB_PATH = APP_DIR / "data.db"
@@ -428,6 +429,42 @@ def toons():
     races = db().execute("SELECT name FROM races ORDER BY sort").fetchall()
     return render_template("toons.html", active="toons", chars=chars, tasks=tasks,
                            races=[r["name"] for r in races])
+
+
+@app.get("/toons/<int:char_id>")
+def toon(char_id):
+    c = db().execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
+    if c is None:
+        abort(404)
+    # pull the race's kit straight off the planner data
+    race = db().execute("SELECT * FROM races WHERE name = ?", (c["race"],)).fetchone()
+    racials, klasses, playable = [], [], None
+    if race:
+        racials = db().execute(
+            "SELECT * FROM racials WHERE race_id = ? ORDER BY kind DESC, id", (race["id"],)
+        ).fetchall()
+        klasses = db().execute(
+            "SELECT * FROM race_classes WHERE race_id = ? ORDER BY id", (race["id"],)
+        ).fetchall()
+        playable = next((k for k in klasses if k["klass"].lower() == (c["klass"] or "").lower()), None)
+    # notes are kept as one field, split into blocks on ||
+    blocks = [b.strip() for b in (c["notes"] or "").split("||") if b.strip()]
+    return render_template("toon.html", active="toons", c=c, race=race, racials=racials,
+                           klasses=klasses, playable=playable, blocks=blocks)
+
+
+@app.post("/toons/<int:char_id>/edit")
+def toon_edit(char_id):
+    f = request.form
+    db().execute(
+        "UPDATE characters SET name = ?, race = ?, klass = ?, spec = ?, purpose = ?, "
+        "priority = ?, notes = ? WHERE id = ?",
+        (f.get("name", "").strip(), f.get("race", "").strip(), f.get("klass", "").strip(),
+         f.get("spec", "").strip(), f.get("purpose", "").strip(),
+         int(f.get("priority") or 5), f.get("notes", "").strip(), char_id),
+    )
+    db().commit()
+    return redirect(url_for("toon", char_id=char_id))
 
 
 @app.post("/toons/characters/add")

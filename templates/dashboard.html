@@ -59,7 +59,7 @@
       {% for c in chars %}
         <tr>
           <td>
-            <b>{{ c['name'] or '(unnamed)' }}</b><br>
+            <b><a href="{{ url_for('toon', char_id=c['id']) }}">{{ c['name'] or '(unnamed)' }}</a></b><br>
             <span class="muted small">{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}</span>
           </td>
           <td class="small">{{ c['purpose'] }}</td>

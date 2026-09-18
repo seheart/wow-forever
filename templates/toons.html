@@ -8,7 +8,7 @@
 {% for c in chars %}
   <div class="panel" style="margin-bottom:12px">
     <div class="fact-top">
-      <span class="claim">{{ c['name'] or '(name not chosen)' }} — {{ c['race'] }} {{ c['klass'] }}</span>
+      <span class="claim"><a href="{{ url_for('toon', char_id=c['id']) }}">{{ c['name'] or '(name not chosen)' }}</a> — {{ c['race'] }} {{ c['klass'] }}</span>
       <span class="pill {{ 'confirmed' if c['reserved'] else 'unconfirmed' }}">
         {{ 'name reserved' if c['reserved'] else 'not reserved' }}</span>
     </div>
@@ -20,9 +20,7 @@
       <form class="inline" method="post" action="{{ url_for('char_reserved', char_id=c['id']) }}">
         <button class="ghost" type="submit">toggle reserved</button>
       </form>
-      <form class="inline" method="post" action="{{ url_for('char_delete', char_id=c['id']) }}">
-        <button class="ghost" type="submit">delete</button>
-      </form>
+      <a class="ghostlink" href="{{ url_for('toon', char_id=c['id']) }}">open</a>
     </div>
   </div>
 {% endfor %}
