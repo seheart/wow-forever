@@ -29,14 +29,12 @@
   <a class="nav-item {{ 'active' if active=='news' }}" href="{{ url_for('news_page') }}">
     News <span class="badge" id="news-badge" {% if not unseen %}hidden{% endif %}>{{ unseen }}</span>
   </a>
+  <a class="nav-item {{ 'active' if active=='toons' }}" href="{{ url_for('toons') }}">My Toons</a>
 
-  <div class="nav-label">Reference</div>
-  <a class="nav-item {{ 'active' if active=='planner' }}" href="{{ url_for('planner') }}">Planner</a>
-
-  <div class="nav-label">Me</div>
-  <a class="nav-item {{ 'active' if active=='prep' }}" href="{{ url_for('prep') }}">Prep</a>
-
-  <button class="theme-toggle" id="theme-toggle" type="button"></button>
+  <div class="nav-foot">
+    <a class="foot-item {{ 'active' if active=='planner' }}" href="{{ url_for('planner') }}">Planner</a>
+    <button class="theme-toggle" id="theme-toggle" type="button"></button>
+  </div>
   <script>
     (function () {
       var btn = document.getElementById('theme-toggle');

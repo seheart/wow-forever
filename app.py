@@ -421,16 +421,16 @@ def planner():
                            faction=faction, all_classes=all_classes)
 
 
-@app.get("/prep")
-def prep():
+@app.get("/toons")
+def toons():
     chars = db().execute("SELECT * FROM characters ORDER BY priority, id").fetchall()
     tasks = db().execute("SELECT * FROM checklist ORDER BY done, sort, id").fetchall()
     races = db().execute("SELECT name FROM races ORDER BY sort").fetchall()
-    return render_template("prep.html", active="prep", chars=chars, tasks=tasks,
+    return render_template("toons.html", active="toons", chars=chars, tasks=tasks,
                            races=[r["name"] for r in races])
 
 
-@app.post("/prep/characters/add")
+@app.post("/toons/characters/add")
 def char_add():
     f = request.form
     db().execute(
@@ -441,45 +441,45 @@ def char_add():
          int(f.get("priority") or 5), f.get("notes", "").strip()),
     )
     db().commit()
-    return redirect(url_for("prep"))
+    return redirect(url_for("toons"))
 
 
-@app.post("/prep/characters/<int:char_id>/reserved")
+@app.post("/toons/characters/<int:char_id>/reserved")
 def char_reserved(char_id):
     db().execute("UPDATE characters SET reserved = NOT reserved WHERE id = ?", (char_id,))
     db().commit()
-    return redirect(url_for("prep"))
+    return redirect(url_for("toons"))
 
 
-@app.post("/prep/characters/<int:char_id>/delete")
+@app.post("/toons/characters/<int:char_id>/delete")
 def char_delete(char_id):
     db().execute("DELETE FROM characters WHERE id = ?", (char_id,))
     db().commit()
-    return redirect(url_for("prep"))
+    return redirect(url_for("toons"))
 
 
-@app.post("/prep/tasks/add")
+@app.post("/toons/tasks/add")
 def task_add():
     db().execute(
         "INSERT INTO checklist (task, due, sort) VALUES (?,?,?)",
         (request.form["task"].strip(), request.form.get("due", "").strip(), 99),
     )
     db().commit()
-    return redirect(url_for("prep"))
+    return redirect(url_for("toons"))
 
 
-@app.post("/prep/tasks/<int:task_id>/toggle")
+@app.post("/toons/tasks/<int:task_id>/toggle")
 def task_toggle(task_id):
     db().execute("UPDATE checklist SET done = NOT done WHERE id = ?", (task_id,))
     db().commit()
-    return redirect(request.referrer or url_for("prep"))
+    return redirect(request.referrer or url_for("toons"))
 
 
-@app.post("/prep/tasks/<int:task_id>/delete")
+@app.post("/toons/tasks/<int:task_id>/delete")
 def task_delete(task_id):
     db().execute("DELETE FROM checklist WHERE id = ?", (task_id,))
     db().commit()
-    return redirect(url_for("prep"))
+    return redirect(url_for("toons"))
 
 
 # ---------- 404 ----------
