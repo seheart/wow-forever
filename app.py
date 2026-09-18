@@ -229,10 +229,10 @@ def seed(con):
         "INSERT INTO characters (name, race, klass, spec, purpose, priority, notes) "
         "VALUES (?,?,?,?,?,?,?)",
         [
-            ("", "Human", "Hunter", "Marksmanship", "Main - PvP and questing", 1,
+            ("Chosan", "Human", "Hunter", "Marksmanship", "Main - PvP and questing", 1,
              "Will to Survive breaks stuns without burning the PvP trinket; Perception sees Rogue openers. "
              "New combo in Forever."),
-            ("", "Night Elf", "Druid", "Feral", "The class I actually love", 2,
+            ("Arborna", "Night Elf", "Druid", "Feral", "The class I actually love", 2,
              "Elune's Light is a 15 sec +10% crit cooldown - good on feral openers and on heals. "
              "Skyborne Druid is the paid alternative if the custom forms land well."),
         ],
