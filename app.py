@@ -104,6 +104,15 @@ def init_db():
             reserved INTEGER DEFAULT 0,
             notes TEXT DEFAULT ''
         );
+        -- ordered levelling plan per character, tickable as you go
+        CREATE TABLE IF NOT EXISTS plan (
+            id INTEGER PRIMARY KEY,
+            char_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+            ordinal INTEGER DEFAULT 0,
+            label TEXT NOT NULL,
+            detail TEXT DEFAULT '',
+            done INTEGER DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS checklist (
             id INTEGER PRIMARY KEY,
             task TEXT NOT NULL,
@@ -242,6 +251,36 @@ def seed(con):
              "Skyborne Druid is the paid alternative if the custom forms land well."),
         ],
     )
+    plans = {
+        "Chosan": [
+            ("Level Beast Mastery, whatever the endgame spec is",
+             "The pet tanking is why hunter levels faster than anything else."),
+            ("Deadly Aspects", "Damage while Aspect of the Hawk is up, which is always."),
+            ("Focused Fire", "Straight damage."),
+            ("Summon Hawk", "New in Forever, part of the 1-30 kit."),
+            ("Pathfinding", "Run speed is levelling speed."),
+            ("Improved Revive Pet", "Quality of life once the above are full."),
+            ("Around 40: decide BM or Survival",
+             "Survival is the melee build and holds Survival Tactics, which is what makes "
+             "the trap/Feign Death escape land."),
+        ],
+        "Arborna": [
+            ("Ferocity (5 points)", "Value in every fight, works in Cat and Bear."),
+            ("Heart of the Wild (3 points)", ""),
+            ("Feral Swiftness (2 points)", ""),
+            ("Mangle when it opens", "The new core Feral attack."),
+            ("King of the Jungle", "Energy generation now that Furor is reworked."),
+            ("Stop vendoring good weapons",
+             "Cat and Bear attacks now scale with equipped weapon damage."),
+        ],
+    }
+    for who, steps in plans.items():
+        cid = con.execute("SELECT id FROM characters WHERE name = ?", (who,)).fetchone()
+        if cid:
+            con.executemany(
+                "INSERT INTO plan (char_id, ordinal, label, detail) VALUES (?,?,?,?)",
+                [(cid[0], i, l, d) for i, (l, d) in enumerate(steps, 1)])
+
     con.executemany(
         "INSERT INTO checklist (task, due, sort) VALUES (?,?,?)",
         [
@@ -498,10 +537,13 @@ def toon(char_id):
             "SELECT * FROM race_classes WHERE race_id = ? ORDER BY id", (race["id"],)
         ).fetchall()
         playable = next((k for k in klasses if k["klass"].lower() == (c["klass"] or "").lower()), None)
+    plan = db().execute(
+        "SELECT * FROM plan WHERE char_id = ? ORDER BY ordinal, id", (char_id,)
+    ).fetchall()
     # notes are kept as one field, split into blocks on ||
     blocks = [b.strip() for b in (c["notes"] or "").split("||") if b.strip()]
     return render_template("toon.html", active="toons", c=c, race=race, racials=racials,
-                           klasses=klasses, playable=playable, blocks=blocks)
+                           klasses=klasses, playable=playable, blocks=blocks, plan=plan)
 
 
 @app.post("/toons/<int:char_id>/edit")
@@ -516,6 +558,33 @@ def toon_edit(char_id):
     )
     db().commit()
     return redirect(url_for("toon", char_id=char_id))
+
+
+@app.post("/toons/<int:char_id>/plan/add")
+def plan_add(char_id):
+    nxt = db().execute(
+        "SELECT COALESCE(MAX(ordinal), 0) + 1 n FROM plan WHERE char_id = ?", (char_id,)
+    ).fetchone()["n"]
+    db().execute(
+        "INSERT INTO plan (char_id, ordinal, label, detail) VALUES (?,?,?,?)",
+        (char_id, nxt, request.form["label"].strip(), request.form.get("detail", "").strip()),
+    )
+    db().commit()
+    return redirect(url_for("toon", char_id=char_id))
+
+
+@app.post("/plan/<int:step_id>/toggle")
+def plan_toggle(step_id):
+    db().execute("UPDATE plan SET done = NOT done WHERE id = ?", (step_id,))
+    db().commit()
+    return redirect(request.referrer or url_for("toons"))
+
+
+@app.post("/plan/<int:step_id>/delete")
+def plan_delete(step_id):
+    db().execute("DELETE FROM plan WHERE id = ?", (step_id,))
+    db().commit()
+    return redirect(request.referrer or url_for("toons"))
 
 
 @app.post("/toons/add")

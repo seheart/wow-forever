@@ -42,6 +42,41 @@
   {% endif %}
 </div>
 
+<div class="panel-head section-head">
+  <h2>Levelling plan</h2>
+  {% if plan %}
+    <span class="muted small">{{ plan|rejectattr('done')|list|length }} of {{ plan|length }} to go</span>
+  {% endif %}
+</div>
+<section class="panel">
+  <ol class="plan">
+    {% for s in plan %}
+      <li class="{{ 'done' if s['done'] }}">
+        <form method="post" action="{{ url_for('plan_toggle', step_id=s['id']) }}">
+          <button class="ghost" type="submit">{{ 'undo' if s['done'] else 'done' }}</button>
+        </form>
+        <div class="plan-body">
+          <b>{{ s['label'] }}</b>
+          {% if s['detail'] %}<div class="muted small">{{ s['detail'] }}</div>{% endif %}
+        </div>
+        <form method="post" action="{{ url_for('plan_delete', step_id=s['id']) }}">
+          <button class="ghost" type="submit" aria-label="Delete step">×</button>
+        </form>
+      </li>
+    {% else %}
+      <p class="empty">No plan yet.</p>
+    {% endfor %}
+  </ol>
+  <details class="adder">
+    <summary>Add a step</summary>
+    <form class="row" method="post" action="{{ url_for('plan_add', char_id=c['id']) }}">
+      <input name="label" placeholder="Talent or milestone" size="26" required>
+      <input name="detail" placeholder="Why" size="38">
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
 {% if blocks %}
   <div class="panel-head section-head"><h2>Notes</h2></div>
   {% for b in blocks %}
