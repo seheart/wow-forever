@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}WoW Forever{% endblock %}</title>
+<link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;🗡️&lt;/text&gt;&lt;/svg&gt;">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>
+  (function () {
+    var saved = localStorage.getItem('theme');
+    var dark = saved ? saved === 'dark' : true;
+    if (dark) document.documentElement.dataset.theme = 'dark';
+  })();
+</script>
+</head>
+<body>
+<nav>
+  <a class="brand" href="{{ url_for('dashboard') }}">WOW<span>FOREVER</span></a>
+  <div class="brand-tag">Nov 4, 2026</div>
+
+  <div class="nav-label">Board</div>
+  <a class="nav-item {{ 'active' if active=='dashboard' }}" href="{{ url_for('dashboard') }}">Dashboard</a>
+  <a class="nav-item {{ 'active' if active=='news' }}" href="{{ url_for('news_page') }}">
+    News <span class="badge" id="news-badge" {% if not unseen %}hidden{% endif %}>{{ unseen }}</span>
+  </a>
+
+  <div class="nav-label">Reference</div>
+  <a class="nav-item {{ 'active' if active=='planner' }}" href="{{ url_for('planner') }}">Planner</a>
+
+  <div class="nav-label">Me</div>
+  <a class="nav-item {{ 'active' if active=='prep' }}" href="{{ url_for('prep') }}">Prep</a>
+
+  <button class="theme-toggle" id="theme-toggle" type="button"></button>
+  <script>
+    (function () {
+      var btn = document.getElementById('theme-toggle');
+      function label() {
+        btn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode';
+      }
+      btn.addEventListener('click', function () {
+        var dark = document.documentElement.dataset.theme !== 'dark';
+        if (dark) document.documentElement.dataset.theme = 'dark';
+        else delete document.documentElement.dataset.theme;
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+        label();
+      });
+      label();
+    })();
+  </script>
+</nav>
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script>
+  // near-real-time: poll the news endpoint, update the badge, toast anything new
+  (function () {
+    var badge = document.getElementById('news-badge');
+    var toast = document.getElementById('toast');
+    var top = null;
+    function tick() {
+      fetch('{{ url_for("api_news") }}').then(function (r) { return r.json(); }).then(function (d) {
+        if (badge) {
+          badge.textContent = d.unseen;
+          badge.hidden = !d.unseen;
+        }
+        if (top !== null && d.top > top && d.latest.length) {
+          var n = d.latest[0];
+          toast.innerHTML = '<strong>' + n.source + '</strong> ' +
+            '<a href="' + n.url + '" target="_blank" rel="noopener">' + n.title + '</a>';
+          toast.hidden = false;
+          setTimeout(function () { toast.hidden = true; }, 12000);
+        }
+        top = d.top;
+      }).catch(function () {});
+    }
+    tick();
+    setInterval(tick, 20000);
+  })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}WoW Forever — Prep{% endblock %}
+{% block content %}
+<h1>Prep</h1>
+<p class="sub">What you're rolling, and what has to happen before November 4.</p>
+
+<h2>Characters</h2>
+{% for c in chars %}
+  <div class="panel" style="margin-bottom:12px">
+    <div class="fact-top">
+      <span class="claim">{{ c['name'] or '(name not chosen)' }} — {{ c['race'] }} {{ c['klass'] }}</span>
+      <span class="pill {{ 'confirmed' if c['reserved'] else 'unconfirmed' }}">
+        {{ 'name reserved' if c['reserved'] else 'not reserved' }}</span>
+    </div>
+    <div class="muted small" style="margin-top:4px">
+      {% if c['spec'] %}{{ c['spec'] }} · {% endif %}{{ c['purpose'] }}
+    </div>
+    {% if c['notes'] %}<div class="detail" style="margin-top:8px">{{ c['notes'] }}</div>{% endif %}
+    <div style="margin-top:10px">
+      <form class="inline" method="post" action="{{ url_for('char_reserved', char_id=c['id']) }}">
+        <button class="ghost" type="submit">toggle reserved</button>
+      </form>
+      <form class="inline" method="post" action="{{ url_for('char_delete', char_id=c['id']) }}">
+        <button class="ghost" type="submit">delete</button>
+      </form>
+    </div>
+  </div>
+{% endfor %}
+
+<form class="row" method="post" action="{{ url_for('char_add') }}">
+  <input name="name" placeholder="Name">
+  <select name="race">
+    <option value="">Race</option>
+    {% for r in races %}<option>{{ r }}</option>{% endfor %}
+  </select>
+  <input name="klass" placeholder="Class" size="10">
+  <input name="spec" placeholder="Spec" size="12">
+  <input name="purpose" placeholder="Purpose" size="24">
+  <input name="priority" type="number" value="5" min="1" max="9" size="2">
+  <input name="notes" placeholder="Notes" size="30">
+  <button type="submit">Add character</button>
+</form>
+
+<h2>Checklist</h2>
+<div class="panel">
+  {% for t in tasks %}
+    <div class="task {{ 'done' if t['done'] }}">
+      <form class="inline" method="post" action="{{ url_for('task_toggle', task_id=t['id']) }}">
+        <button class="ghost" type="submit">{{ 'undo' if t['done'] else 'done' }}</button>
+      </form>
+      <span class="t">{{ t['task'] }}</span>
+      {% if t['due'] %}<span class="muted small">{{ t['due'] }}</span>{% endif %}
+      <form class="inline" method="post" action="{{ url_for('task_delete', task_id=t['id']) }}">
+        <button class="ghost" type="submit">×</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+
+<form class="row" method="post" action="{{ url_for('task_add') }}">
+  <input name="task" placeholder="New task" size="40" required>
+  <input name="due" placeholder="YYYY-MM-DD" size="10">
+  <button type="submit">Add task</button>
+</form>
+{% endblock %}

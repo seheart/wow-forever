@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}WoW Forever — Dashboard{% endblock %}
+{% block content %}
+<h1>World of Warcraft: Forever</h1>
+<p class="sub">Launch November 4, 2026 · 3:00 PM PST</p>
+
+<div class="counts">
+  <div class="count">
+    <div class="n">{{ cd.launch.days }}</div>
+    <div class="l">{{ 'days since launch' if cd.launch.past else 'days to launch' }}</div>
+  </div>
+  <div class="count">
+    <div class="n">{{ cd.beta_end.days }}</div>
+    <div class="l">{{ 'days since beta end' if cd.beta_end.past else 'days of beta left' }}</div>
+  </div>
+  <div class="count">
+    <div class="n">{{ cd.raids.days }}</div>
+    <div class="l">{{ 'days since raids' if cd.raids.past else 'days to raids' }}</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Latest</h2>
+    {% if items_empty is not defined and news %}
+      <ul class="feed">
+        {% for n in news %}
+          <li>
+            <span class="src">{{ n['source'] }}</span>
+            <a href="{{ n['url'] }}" target="_blank" rel="noopener">{{ n['title'] }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted small">No items yet. Feeds poll every 5 minutes — or hit
+        <a href="{{ url_for('news_page') }}">News</a> and refresh manually.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Roadmap</h2>
+    <ul class="tl">
+      {% for r in road %}
+        <li class="{{ 'past' if r['happens'] < today }}">
+          <span class="when">{{ r['happens'] }}</span>
+          <span class="what">
+            <b>{{ r['label'] }}</b>{% if not r['firm'] %} <span class="est">est.</span>{% endif %}
+            {% if r['detail'] %}<br><span class="muted small">{{ r['detail'] }}</span>{% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Rolling</h2>
+    <table>
+      <tr><th>Character</th><th>Purpose</th></tr>
+      {% for c in chars %}
+        <tr>
+          <td>
+            <b>{{ c['name'] or '(unnamed)' }}</b><br>
+            <span class="muted small">{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}</span>
+          </td>
+          <td class="small">{{ c['purpose'] }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+
+    <h2>To do</h2>
+    {% for t in todo %}
+      <div class="task">
+        <form class="inline" method="post" action="{{ url_for('task_toggle', task_id=t['id']) }}">
+          <button class="ghost" type="submit">done</button>
+        </form>
+        <span class="t">{{ t['task'] }}</span>
+        {% if t['due'] %}<span class="muted small">{{ t['due'] }}</span>{% endif %}
+      </div>
+    {% else %}
+      <p class="muted small">Clear.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
