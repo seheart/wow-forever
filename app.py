@@ -1,4 +1,5 @@
 """WoW Forever — planner, prep board, live news. Flask + SQLite."""
+import random
 import sqlite3
 import threading
 import time
@@ -476,6 +477,35 @@ def task_delete(task_id):
     db().execute("DELETE FROM checklist WHERE id = ?", (task_id,))
     db().commit()
     return redirect(url_for("prep"))
+
+
+# ---------- 404 ----------
+NOT_FOUND = [
+    "Your corpse is in another zone.",
+    "You must be level 60 to view this page.",
+    "Out of range.",
+    "You can't do that while dead.",
+    "That page is behind the $29.99 Skyborne Heroic Pack.",
+    "This page requires Beta access. Your pack tier does not include Beta access.",
+    "Spell is not ready yet.",
+    "There is nothing to loot.",
+    "You have no target.",
+    "You are in combat.",
+    "Not enough rage.",
+    "That page was cut in the talent pass. It was one of the 81.",
+    "This page is unannounced as of today. Blizzard has not confirmed it, and has not denied it.",
+    "A Rogue opened on this page from stealth. Nothing survived.",
+    "You have been disconnected from the server. Investigating some issues with people being able to get into realms now.",
+    "Queue position: 4,182. Estimated time: 43 minutes.",
+    "Ability is not available in this expansion.",
+    "You are not in the right faction for this page.",
+]
+
+
+@app.errorhandler(404)
+def not_found(_):
+    return render_template("404.html", active="", line=random.choice(NOT_FOUND),
+                           path=request.path), 404
 
 
 init_db()
