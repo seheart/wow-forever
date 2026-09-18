@@ -11,9 +11,15 @@ Flask + SQLite, single `app.py`. Port **5858**.
 ## Pages
 
 - **Dashboard** — countdowns to launch / beta end / raids, latest news, roadmap, what you're rolling
-- **News** — RSS pull from six sources, keyword-filtered to Forever. Polls every 5 min in a background thread; the page badge and corner toast update every 20s without a reload. Add/disable/delete feeds in the UI.
+- **News** — RSS pull from six sources, keyword-filtered to Forever, with guild-recruitment
+  noise dropped and cross-feed duplicate stories collapsed by title. Polls every 5 min in a
+  background thread; the badge and corner toast update every 20s without a reload. Feeds can
+  be added, refreshed individually, disabled or deleted in the UI.
 - **Planner** — race/class matrix and all four racials per race, Alliance / Horde / both. New combos marked ★. Tucked at the bottom of the nav next to the theme toggle; it's reference, not daily use.
-- **My Toons** — characters to roll, name-reservation state, launch checklist.
+- **My Toons** — character cards, name-reservation state, launch checklist. Each toon has its
+  own page at `/toons/<id>` with its notes in blocks, that race's four racials pulled from the
+  planner data, and an inline edit form.
+- **404** — themed, because everything else was done.
 
 ## Notes
 

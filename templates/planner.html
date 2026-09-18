@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Seth's WoW Forever Planner — Planner{% endblock %}
 {% block content %}
-<h1>Planner</h1>
-<p class="sub">Nine classes, all vanilla. Six new race/class combos, marked in gold.</p>
+
+<header class="page-head">
+  <h1>Planner</h1>
+  <p class="sub">Nine classes, all vanilla. Six new race/class combos, marked ★.
+    Every race has two actives and two passives.</p>
+</header>
 
 <div class="tabs">
   <a class="{{ 'on' if faction == 'Alliance' }}" href="{{ url_for('planner', faction='Alliance') }}">Alliance</a>
@@ -11,11 +15,11 @@
 </div>
 
 {% for r in rows %}
-  <div class="race {{ r.race['faction']|lower }}">
+  <section class="race {{ r.race['faction']|lower }}">
     <div class="race-head">
       <h3>{{ r.race['name'] }}</h3>
-      <span class="muted small">{{ r.race['faction'] }}</span>
-      {% if r.race['note'] %}<span class="muted small">· {{ r.race['note'] }}</span>{% endif %}
+      <span class="muted small">{{ r.classes|length }} classes</span>
+      {% if r.race['note'] %}<span class="muted small note">{{ r.race['note'] }}</span>{% endif %}
     </div>
 
     <div class="chips">
@@ -24,14 +28,18 @@
       {% endfor %}
     </div>
 
-    {% for x in r.racials %}
-      <div class="racial">
-        <b>{{ x['name'] }}</b>
-        <span class="pill {{ x['kind'] }}">{{ x['kind'] }}</span>
-        <span class="pill {{ x['tag'] }}">{{ x['tag'] }}</span>
-        <div class="muted small">{{ x['effect'] }}</div>
-      </div>
-    {% endfor %}
-  </div>
+    <div class="racial-grid">
+      {% for x in r.racials %}
+        <div class="racial">
+          <div class="racial-head">
+            <b>{{ x['name'] }}</b>
+            <span class="pill {{ x['kind'] }}">{{ x['kind'] }}</span>
+            <span class="pill {{ x['tag'] }}">{{ x['tag'] }}</span>
+          </div>
+          <div class="muted small">{{ x['effect'] }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 {% endfor %}
 {% endblock %}

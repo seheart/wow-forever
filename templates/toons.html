@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Seth's WoW Forever Planner — My Toons{% endblock %}
 {% block content %}
-<h1>My Toons</h1>
-<p class="sub">What you're rolling, and what has to happen before November 4.</p>
 
-<h2>Characters</h2>
+<header class="page-head">
+  <h1>My Toons</h1>
+  <p class="sub">Who you're rolling, and what has to happen before November 4.</p>
+</header>
+
 <div class="toon-grid">
   {% for c in chars %}
     <a class="toon-card" href="{{ url_for('toon', char_id=c['id']) }}">
       <div class="toon-top">
-        <span class="toon-name">{{ c['name'] or '(name not chosen)' }}</span>
+        <span class="toon-name">{{ c['name'] or 'Unnamed' }}</span>
         <span class="pill {{ 'confirmed' if c['reserved'] else 'unconfirmed' }}">
           {{ 'reserved' if c['reserved'] else 'not reserved' }}</span>
       </div>
@@ -19,42 +21,54 @@
         <div class="toon-teaser">{{ c['notes'].split('||')[0].strip()[:110] }}…</div>
       {% endif %}
     </a>
+  {% else %}
+    <p class="empty">No characters yet.</p>
   {% endfor %}
 </div>
 
-<form class="row" method="post" action="{{ url_for('char_add') }}">
-  <input name="name" placeholder="Name">
-  <select name="race">
-    <option value="">Race</option>
-    {% for r in races %}<option>{{ r }}</option>{% endfor %}
-  </select>
-  <input name="klass" placeholder="Class" size="10">
-  <input name="spec" placeholder="Spec" size="12">
-  <input name="purpose" placeholder="Purpose" size="24">
-  <input name="priority" type="number" value="5" min="1" max="9" size="2">
-  <input name="notes" placeholder="Notes" size="30">
-  <button type="submit">Add character</button>
-</form>
+<details class="adder">
+  <summary>Add a character</summary>
+  <form class="row" method="post" action="{{ url_for('char_add') }}">
+    <input name="name" placeholder="Name">
+    <select name="race" aria-label="Race">
+      <option value="">Race</option>
+      {% for r in races %}<option>{{ r }}</option>{% endfor %}
+    </select>
+    <input name="klass" placeholder="Class" size="10">
+    <input name="spec" placeholder="Spec" size="12">
+    <input name="purpose" placeholder="Purpose" size="22">
+    <input name="priority" type="number" value="5" min="1" max="9" aria-label="Priority">
+    <button type="submit">Add</button>
+  </form>
+</details>
 
-<h2>Checklist</h2>
-<div class="panel">
+<div class="panel-head section-head">
+  <h2>Checklist</h2>
+  <span class="muted small">{{ tasks|rejectattr('done')|list|length }} open</span>
+</div>
+<section class="panel">
   {% for t in tasks %}
     <div class="task {{ 'done' if t['done'] }}">
-      <form class="inline" method="post" action="{{ url_for('task_toggle', task_id=t['id']) }}">
+      <form method="post" action="{{ url_for('task_toggle', task_id=t['id']) }}">
         <button class="ghost" type="submit">{{ 'undo' if t['done'] else 'done' }}</button>
       </form>
       <span class="t">{{ t['task'] }}</span>
-      {% if t['due'] %}<span class="muted small">{{ t['due'] }}</span>{% endif %}
-      <form class="inline" method="post" action="{{ url_for('task_delete', task_id=t['id']) }}">
-        <button class="ghost" type="submit">×</button>
+      {% if t['due'] %}<span class="due">{{ t['due'] }}</span>{% endif %}
+      <form method="post" action="{{ url_for('task_delete', task_id=t['id']) }}">
+        <button class="ghost" type="submit" aria-label="Delete task">×</button>
       </form>
     </div>
+  {% else %}
+    <p class="empty">Nothing on the list.</p>
   {% endfor %}
-</div>
+</section>
 
-<form class="row" method="post" action="{{ url_for('task_add') }}">
-  <input name="task" placeholder="New task" size="40" required>
-  <input name="due" placeholder="YYYY-MM-DD" size="10">
-  <button type="submit">Add task</button>
-</form>
+<details class="adder">
+  <summary>Add a task</summary>
+  <form class="row" method="post" action="{{ url_for('task_add') }}">
+    <input name="task" placeholder="What needs doing" size="38" required>
+    <input name="due" type="date" aria-label="Due date">
+    <button type="submit">Add</button>
+  </form>
+</details>
 {% endblock %}

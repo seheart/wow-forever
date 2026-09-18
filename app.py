@@ -1,5 +1,6 @@
 """Seth's WoW Forever Planner — race/class planner, prep board, live news. Flask + SQLite."""
 import random
+import re
 import sqlite3
 import threading
 import time
@@ -256,6 +257,15 @@ def seed(con):
 
 
 # ---------- news polling ----------
+# forum feeds carry a lot of guild recruitment; none of it is news
+NOISE = re.compile(
+    r"recruit|\bLF[MG]\b|looking for|\bWTS\b|\bWTB\b|boost(ing)?\b"
+    r"|\[(NA|EU|OCE|Alliance|Horde|PvP|PvE|RP)\]",
+    re.I,
+)
+
+
+
 def fetch_feeds(only_id=None):
     """Pull every enabled feed. Returns how many new items landed."""
     con = sqlite3.connect(DB_PATH)
@@ -279,6 +289,11 @@ def fetch_feeds(only_id=None):
                     continue
                 blob = f"{title} {e.get('summary', '')}".lower()
                 if kw and kw not in blob:
+                    continue
+                if NOISE.search(title):
+                    continue
+                # two feeds often carry the same story under different urls
+                if con.execute("SELECT 1 FROM news WHERE title = ?", (title,)).fetchone():
                     continue
                 pub = e.get("published") or e.get("updated") or ""
                 cur = con.execute(
@@ -310,6 +325,34 @@ def start_poller():
 
 
 # ---------- helpers ----------
+@app.template_filter("when")
+def when_filter(raw):
+    """Feed dates arrive in a dozen formats. Render whatever parses as '3h ago'."""
+    if not raw:
+        return ""
+    parsed = None
+    for fmt in ("%a, %d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S %Z",
+                "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S"):
+        try:
+            parsed = datetime.strptime(raw.strip(), fmt)
+            break
+        except ValueError:
+            continue
+    if parsed is None:
+        return raw[:16]
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    mins = (datetime.now(timezone.utc) - parsed).total_seconds() / 60
+    if mins < 60:
+        return f"{int(max(mins, 0))}m ago"
+    if mins < 60 * 48:
+        return f"{int(mins // 60)}h ago"
+    if mins < 60 * 24 * 14:
+        return f"{int(mins // 1440)}d ago"
+    return parsed.strftime("%b %-d, %Y")
+
+
+
 def countdowns():
     now = datetime.now(timezone.utc)
     def delta(target):
@@ -347,14 +390,22 @@ def dashboard():
 def news_page():
     items = db().execute("SELECT * FROM news ORDER BY id DESC LIMIT 200").fetchall()
     feeds = db().execute("SELECT * FROM feeds ORDER BY name").fetchall()
+    # mark after reading so this render can still flag what arrived since last visit
+    fresh = {r["id"] for r in items if not r["seen"]}
     db().execute("UPDATE news SET seen = 1 WHERE seen = 0")
     db().commit()
-    return render_template("news.html", active="news", items=items, feeds=feeds)
+    return render_template("news.html", active="news", items=items, feeds=feeds, fresh=fresh)
 
 
 @app.post("/news/refresh")
 def news_refresh():
     fetch_feeds()
+    return redirect(url_for("news_page"))
+
+
+@app.post("/feeds/<int:feed_id>/refresh")
+def feed_refresh(feed_id):
+    fetch_feeds(only_id=feed_id)
     return redirect(url_for("news_page"))
 
 
@@ -467,7 +518,7 @@ def toon_edit(char_id):
     return redirect(url_for("toon", char_id=char_id))
 
 
-@app.post("/toons/characters/add")
+@app.post("/toons/add")
 def char_add():
     f = request.form
     db().execute(
@@ -481,21 +532,21 @@ def char_add():
     return redirect(url_for("toons"))
 
 
-@app.post("/toons/characters/<int:char_id>/reserved")
+@app.post("/toons/<int:char_id>/reserved")
 def char_reserved(char_id):
     db().execute("UPDATE characters SET reserved = NOT reserved WHERE id = ?", (char_id,))
     db().commit()
     return redirect(url_for("toons"))
 
 
-@app.post("/toons/characters/<int:char_id>/delete")
+@app.post("/toons/<int:char_id>/delete")
 def char_delete(char_id):
     db().execute("DELETE FROM characters WHERE id = ?", (char_id,))
     db().commit()
     return redirect(url_for("toons"))
 
 
-@app.post("/toons/tasks/add")
+@app.post("/tasks/add")
 def task_add():
     db().execute(
         "INSERT INTO checklist (task, due, sort) VALUES (?,?,?)",
@@ -505,14 +556,14 @@ def task_add():
     return redirect(url_for("toons"))
 
 
-@app.post("/toons/tasks/<int:task_id>/toggle")
+@app.post("/tasks/<int:task_id>/toggle")
 def task_toggle(task_id):
     db().execute("UPDATE checklist SET done = NOT done WHERE id = ?", (task_id,))
     db().commit()
     return redirect(request.referrer or url_for("toons"))
 
 
-@app.post("/toons/tasks/<int:task_id>/delete")
+@app.post("/tasks/<int:task_id>/delete")
 def task_delete(task_id):
     db().execute("DELETE FROM checklist WHERE id = ?", (task_id,))
     db().commit()
@@ -546,6 +597,13 @@ NOT_FOUND = [
 def not_found(_):
     return render_template("404.html", active="", line=random.choice(NOT_FOUND),
                            path=request.path), 404
+
+
+@app.errorhandler(500)
+def server_error(_):
+    return render_template("404.html", active="", path=request.path,
+                           line="The server has encountered a critical error. "
+                                "Wipe and try again."), 500
 
 
 init_db()

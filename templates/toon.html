@@ -1,89 +1,105 @@
 {% extends "base.html" %}
 {% block title %}Seth's WoW Forever Planner — {{ c['name'] or 'Unnamed toon' }}{% endblock %}
 {% block content %}
-<p class="small"><a href="{{ url_for('toons') }}" class="muted">← My Toons</a></p>
 
-<h1>{{ c['name'] or 'Unnamed' }}</h1>
-<p class="sub">
-  {{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}
-  {% if c['purpose'] %} — {{ c['purpose'] }}{% endif %}
-</p>
+<a class="back" href="{{ url_for('toons') }}">← My Toons</a>
 
-<div class="counts">
-  <div class="count">
-    <div class="n" style="font-size:19px">{{ 'Reserved' if c['reserved'] else 'Not yet' }}</div>
-    <div class="l">name reservation</div>
-  </div>
-  <div class="count">
-    <div class="n" style="font-size:19px">#{{ c['priority'] }}</div>
-    <div class="l">priority</div>
-  </div>
-  {% if race %}
-    <div class="count">
-      <div class="n" style="font-size:19px">{{ race['faction'] }}</div>
-      <div class="l">faction</div>
+<header class="page-head">
+  <div class="head-row">
+    <div>
+      <h1>{{ c['name'] or 'Unnamed' }}</h1>
+      <p class="sub">
+        {{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}
+        {% if c['purpose'] %}<br><span class="gold">{{ c['purpose'] }}</span>{% endif %}
+      </p>
     </div>
-  {% endif %}
-</div>
-
-<form class="inline" method="post" action="{{ url_for('char_reserved', char_id=c['id']) }}">
-  <button class="ghost" type="submit">toggle reserved</button>
-</form>
+    <form method="post" action="{{ url_for('char_reserved', char_id=c['id']) }}">
+      <button class="{{ '' if c['reserved'] else 'ghost' }}" type="submit">
+        {{ 'Name reserved' if c['reserved'] else 'Mark reserved' }}
+      </button>
+    </form>
+  </div>
+</header>
 
 {% if race and not playable %}
   <p class="warnbox">{{ c['race'] }} cannot play {{ c['klass'] }} in Forever.</p>
 {% endif %}
 
-<h2>Notes</h2>
-{% for b in blocks %}
-  <div class="panel notebox">{{ b }}</div>
-{% else %}
-  <p class="muted small">Nothing written down yet.</p>
-{% endfor %}
+<div class="strip">
+  <div class="stat">
+    <div class="stat-n">{{ 'Yes' if c['reserved'] else 'No' }}</div>
+    <div class="stat-l">name reserved</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n">#{{ c['priority'] }}</div>
+    <div class="stat-l">priority</div>
+  </div>
+  {% if race %}
+    <div class="stat">
+      <div class="stat-n">{{ race['faction'] }}</div>
+      <div class="stat-l">faction</div>
+    </div>
+  {% endif %}
+</div>
+
+{% if blocks %}
+  <div class="panel-head section-head"><h2>Notes</h2></div>
+  {% for b in blocks %}
+    <section class="panel notebox">{{ b }}</section>
+  {% endfor %}
+{% endif %}
 
 {% if race %}
-  <h2>{{ race['name'] }} racials</h2>
-  <div class="race {{ race['faction']|lower }}">
-    {% for x in racials %}
-      <div class="racial">
-        <b>{{ x['name'] }}</b>
-        <span class="pill {{ x['kind'] }}">{{ x['kind'] }}</span>
-        <span class="pill {{ x['tag'] }}">{{ x['tag'] }}</span>
-        <div class="muted small">{{ x['effect'] }}</div>
-      </div>
-    {% endfor %}
+  <div class="panel-head section-head">
+    <h2>{{ race['name'] }} racials</h2>
+    <a class="ghostlink" href="{{ url_for('planner', faction=race['faction']) }}">Planner</a>
   </div>
+  <section class="panel">
+    <div class="racial-grid">
+      {% for x in racials %}
+        <div class="racial">
+          <div class="racial-head">
+            <b>{{ x['name'] }}</b>
+            <span class="pill {{ x['kind'] }}">{{ x['kind'] }}</span>
+            <span class="pill {{ x['tag'] }}">{{ x['tag'] }}</span>
+          </div>
+          <div class="muted small">{{ x['effect'] }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
-  <h2>Other {{ race['name'] }} classes</h2>
+  <div class="panel-head section-head"><h2>{{ race['name'] }} can play</h2></div>
   <div class="chips">
     {% for k in klasses %}
-      <span class="chip {{ 'new' if k['is_new'] }}"
-            style="{{ 'border-color:var(--gold);font-weight:600' if k['klass']|lower == c['klass']|lower }}">
+      <span class="chip {{ 'new' if k['is_new'] }} {{ 'mine' if k['klass']|lower == c['klass']|lower }}">
         {{ k['klass'] }}{% if k['is_new'] %} ★{% endif %}
       </span>
     {% endfor %}
   </div>
 {% endif %}
 
-<h2>Edit</h2>
-<form method="post" action="{{ url_for('toon_edit', char_id=c['id']) }}">
-  <div class="row" style="margin-top:0">
-    <input name="name" value="{{ c['name'] }}" placeholder="Name">
-    <input name="race" value="{{ c['race'] }}" placeholder="Race" size="12">
-    <input name="klass" value="{{ c['klass'] }}" placeholder="Class" size="10">
-    <input name="spec" value="{{ c['spec'] }}" placeholder="Spec" size="14">
-    <input name="purpose" value="{{ c['purpose'] }}" placeholder="Purpose" size="26">
-    <input name="priority" type="number" value="{{ c['priority'] }}" min="1" max="9">
-  </div>
-  <textarea name="notes" rows="9" style="width:100%;margin-top:10px"
-            placeholder="Notes — split sections with ||">{{ c['notes'] }}</textarea>
-  <div class="row">
-    <button type="submit">Save</button>
-    <span class="muted small">Split sections with <code>||</code></span>
-  </div>
-</form>
-
-<form class="row" method="post" action="{{ url_for('char_delete', char_id=c['id']) }}">
-  <button class="ghost" type="submit">delete this toon</button>
-</form>
+<details class="adder">
+  <summary>Edit</summary>
+  <form method="post" action="{{ url_for('toon_edit', char_id=c['id']) }}">
+    <div class="row">
+      <input name="name" value="{{ c['name'] }}" placeholder="Name">
+      <input name="race" value="{{ c['race'] }}" placeholder="Race" size="12">
+      <input name="klass" value="{{ c['klass'] }}" placeholder="Class" size="10">
+      <input name="spec" value="{{ c['spec'] }}" placeholder="Spec" size="14">
+      <input name="purpose" value="{{ c['purpose'] }}" placeholder="Purpose" size="24">
+      <input name="priority" type="number" value="{{ c['priority'] }}" min="1" max="9"
+             aria-label="Priority">
+    </div>
+    <textarea name="notes" rows="10" aria-label="Notes"
+              placeholder="Notes — split sections with ||">{{ c['notes'] }}</textarea>
+    <div class="row">
+      <button type="submit">Save</button>
+      <span class="muted small">Split sections with <code>||</code></span>
+    </div>
+  </form>
+  <form class="row danger" method="post" action="{{ url_for('char_delete', char_id=c['id']) }}">
+    <button class="ghost" type="submit">Delete {{ c['name'] or 'this toon' }}</button>
+  </form>
+</details>
 {% endblock %}

@@ -4,44 +4,18 @@
 <div class="lost">
   <div class="err">Error 404</div>
   <h1>{{ line }}</h1>
-  <p class="sub">{{ path }}</p>
+  <p class="path">{{ path }}</p>
 
   <div class="spirit">
-    <div class="ghost">👻</div>
+    <div class="ghost-icon">👻</div>
     <p class="muted small">You are in ghost form. Nothing here has loot.</p>
   </div>
 
   <div class="acts">
     <a class="rez" href="{{ url_for('dashboard') }}">Release Spirit</a>
-    <a class="rez ghostwalk" href="{{ url_for('planner') }}">Wait for a Resurrection</a>
+    <a class="rez ghostwalk" href="{{ url_for('toons') }}">Wait for a Resurrection</a>
   </div>
 
   <p class="rez-sick">You will be afflicted with Resurrection Sickness for 10 minutes.</p>
 </div>
-
-<style>
-  .lost { text-align: center; padding: 60px 0 40px; max-width: 620px; margin: 0 auto; }
-  .err { color: var(--muted); font-size: 11px; letter-spacing: .28em;
-    text-transform: uppercase; margin-bottom: 14px; }
-  .lost h1 { font-size: 30px; line-height: 1.25; margin-bottom: 10px; }
-  .lost .sub { font-family: ui-monospace, monospace; font-size: 13px; margin-bottom: 34px;
-    word-break: break-all; }
-  .spirit { border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
-    padding: 26px 20px; margin-bottom: 28px; }
-  .ghost { font-size: 52px; filter: grayscale(1); opacity: .5;
-    animation: bob 3.2s ease-in-out infinite; }
-  @keyframes bob {
-    0%, 100% { transform: translateY(0); opacity: .38; }
-    50% { transform: translateY(-9px); opacity: .62; }
-  }
-  .acts { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .rez { text-decoration: none; background: var(--gold); color: #17140d; font-weight: 600;
-    border-radius: 5px; padding: 9px 20px; font-size: 14px; }
-  .rez:hover { filter: brightness(1.08); }
-  .rez.ghostwalk { background: none; color: var(--muted); border: 1px solid var(--line);
-    font-weight: 400; }
-  .rez.ghostwalk:hover { color: var(--ink); }
-  .rez-sick { color: var(--muted); font-size: 11px; letter-spacing: .1em;
-    text-transform: uppercase; margin-top: 26px; }
-</style>
 {% endblock %}

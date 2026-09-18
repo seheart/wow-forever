@@ -12,13 +12,14 @@
 <script>
   (function () {
     var saved = localStorage.getItem('theme');
-    var dark = saved ? saved === 'dark' : true;
-    if (dark) document.documentElement.dataset.theme = 'dark';
+    if (!saved || saved === 'dark') document.documentElement.dataset.theme = 'dark';
   })();
 </script>
 </head>
 <body>
-<nav>
+<a class="skip" href="#main">Skip to content</a>
+
+<nav aria-label="Main">
   <a class="brand" href="{{ url_for('dashboard') }}">
     <span class="owner">Seth's</span>WOW FOREVER<span class="kind">Planner</span>
   </a>
@@ -35,46 +36,48 @@
     <a class="foot-item {{ 'active' if active=='planner' }}" href="{{ url_for('planner') }}">Planner</a>
     <button class="theme-toggle" id="theme-toggle" type="button"></button>
   </div>
-  <script>
-    (function () {
-      var btn = document.getElementById('theme-toggle');
-      function label() {
-        btn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode';
-      }
-      btn.addEventListener('click', function () {
-        var dark = document.documentElement.dataset.theme !== 'dark';
-        if (dark) document.documentElement.dataset.theme = 'dark';
-        else delete document.documentElement.dataset.theme;
-        localStorage.setItem('theme', dark ? 'dark' : 'light');
-        label();
-      });
-      label();
-    })();
-  </script>
 </nav>
-<main>
+
+<main id="main">
   {% block content %}{% endblock %}
 </main>
 
 <div class="toast" id="toast" hidden></div>
+
 <script>
-  // near-real-time: poll the news endpoint, update the badge, toast anything new
   (function () {
+    // theme
+    var btn = document.getElementById('theme-toggle');
+    function label() {
+      btn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light' : 'Dark';
+    }
+    btn.addEventListener('click', function () {
+      var dark = document.documentElement.dataset.theme !== 'dark';
+      if (dark) document.documentElement.dataset.theme = 'dark';
+      else delete document.documentElement.dataset.theme;
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+      label();
+    });
+    label();
+
+    // near-real-time news: badge + a toast for anything that lands while you're here
     var badge = document.getElementById('news-badge');
     var toast = document.getElementById('toast');
-    var top = null;
+    var top = null, timer = null;
     function tick() {
       fetch('{{ url_for("api_news") }}').then(function (r) { return r.json(); }).then(function (d) {
-        if (badge) {
-          badge.textContent = d.unseen;
-          badge.hidden = !d.unseen;
-        }
+        if (badge) { badge.textContent = d.unseen; badge.hidden = !d.unseen; }
         if (top !== null && d.top > top && d.latest.length) {
           var n = d.latest[0];
-          toast.innerHTML = '<strong>' + n.source + '</strong> ' +
-            '<a href="' + n.url + '" target="_blank" rel="noopener">' + n.title + '</a>';
+          toast.textContent = '';
+          var src = document.createElement('strong');
+          src.textContent = n.source;
+          var a = document.createElement('a');
+          a.href = n.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = n.title;
+          toast.appendChild(src); toast.appendChild(a);
           toast.hidden = false;
-          setTimeout(function () { toast.hidden = true; }, 12000);
+          clearTimeout(timer);
+          timer = setTimeout(function () { toast.hidden = true; }, 12000);
         }
         top = d.top;
       }).catch(function () {});

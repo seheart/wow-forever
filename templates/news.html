@@ -1,54 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Seth's WoW Forever Planner — News{% endblock %}
 {% block content %}
-<h1>News</h1>
-<p class="sub">Feeds poll every 5 minutes. New items toast in the corner while you're on any page.</p>
 
-<form class="inline" method="post" action="{{ url_for('news_refresh') }}">
-  <button type="submit">Refresh now</button>
-</form>
+<header class="page-head">
+  <div class="head-row">
+    <div>
+      <h1>News</h1>
+      <p class="sub">Six feeds, filtered to Forever. Polls every five minutes; new items
+        toast in the corner from any page.</p>
+    </div>
+    <form method="post" action="{{ url_for('news_refresh') }}">
+      <button type="submit">Refresh now</button>
+    </form>
+  </div>
+</header>
 
-<h2>Items</h2>
-<ul class="feed">
-  {% for n in items %}
-    <li>
-      <span class="src">{{ n['source'] }}</span>
-      <a href="{{ n['url'] }}" target="_blank" rel="noopener">{{ n['title'] }}</a>
-      {% if n['published'] %}<div class="muted small">{{ n['published'] }}</div>{% endif %}
-    </li>
-  {% else %}
-    <li class="muted small">Nothing pulled yet. Hit refresh, or check the feed errors below.</li>
-  {% endfor %}
-</ul>
+<section class="panel">
+  <ul class="feed">
+    {% for n in items %}
+      <li>
+        <a href="{{ n['url'] }}" target="_blank" rel="noopener">{{ n['title'] }}</a>
+        <div class="feed-meta">
+          <span class="src">{{ n['source'] }}</span>
+          <span class="muted">{{ n['published']|when }}</span>
+          {% if n['id'] in fresh %}<span class="pill new">new</span>{% endif %}
+        </div>
+      </li>
+    {% else %}
+      <li class="empty">Nothing pulled yet. Hit refresh, or check the feed errors below.</li>
+    {% endfor %}
+  </ul>
+</section>
 
-<h2>Feeds</h2>
-<table>
-  <tr><th>Name</th><th>Keyword filter</th><th>Last checked</th><th>Status</th><th></th></tr>
-  {% for f in feeds %}
-    <tr>
-      <td>
-        <b{% if not f['enabled'] %} class="muted"{% endif %}>{{ f['name'] }}</b><br>
-        <span class="muted small">{{ f['url'] }}</span>
-      </td>
-      <td class="small">{{ f['keyword'] or '—' }}</td>
-      <td class="small muted">{{ f['last_checked'][:16].replace('T', ' ') if f['last_checked'] else '—' }}</td>
-      <td class="small {{ 'muted' if f['last_status'] == 'ok' }}">{{ f['last_status'] or '—' }}</td>
-      <td>
-        <form class="inline" method="post" action="{{ url_for('feed_toggle', feed_id=f['id']) }}">
-          <button class="ghost" type="submit">{{ 'disable' if f['enabled'] else 'enable' }}</button>
-        </form>
-        <form class="inline" method="post" action="{{ url_for('feed_delete', feed_id=f['id']) }}">
-          <button class="ghost" type="submit">delete</button>
-        </form>
-      </td>
-    </tr>
-  {% endfor %}
-</table>
+<div class="panel-head section-head">
+  <h2>Feeds</h2>
+  <span class="muted small">{{ feeds|selectattr('enabled')|list|length }} of {{ feeds|length }} enabled</span>
+</div>
+<section class="panel">
+  <table>
+    <thead>
+      <tr><th>Source</th><th>Filter</th><th>Last checked</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for f in feeds %}
+        <tr class="{{ 'off' if not f['enabled'] }}">
+          <td>
+            <span class="dot {{ 'ok' if f['last_status'] == 'ok' else ('bad' if f['last_status'] else '') }}"></span>
+            <b>{{ f['name'] }}</b>
+            <div class="muted tiny">{{ f['url'] }}</div>
+            {% if f['last_status'] and f['last_status'] != 'ok' %}
+              <div class="bad tiny">{{ f['last_status'] }}</div>
+            {% endif %}
+          </td>
+          <td class="small">{{ f['keyword'] or '—' }}</td>
+          <td class="small muted">{{ f['last_checked'][:16].replace('T', ' ') if f['last_checked'] else '—' }}</td>
+          <td class="actions">
+            <form method="post" action="{{ url_for('feed_refresh', feed_id=f['id']) }}">
+              <button class="ghost" type="submit">refresh</button>
+            </form>
+            <form method="post" action="{{ url_for('feed_toggle', feed_id=f['id']) }}">
+              <button class="ghost" type="submit">{{ 'disable' if f['enabled'] else 'enable' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('feed_delete', feed_id=f['id']) }}">
+              <button class="ghost" type="submit" aria-label="Delete feed">delete</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 
-<form class="row" method="post" action="{{ url_for('feed_add') }}">
-  <input name="name" placeholder="Source name" required>
-  <input name="url" placeholder="Feed URL" size="42" required>
-  <input name="keyword" placeholder="keyword filter (optional)">
-  <button type="submit">Add feed</button>
-</form>
+<details class="adder">
+  <summary>Add a feed</summary>
+  <form class="row" method="post" action="{{ url_for('feed_add') }}">
+    <input name="name" placeholder="Source name" required>
+    <input name="url" type="url" placeholder="https://example.com/feed" size="38" required>
+    <input name="keyword" placeholder="keyword filter (optional)">
+    <button type="submit">Add feed</button>
+  </form>
+</details>
 {% endblock %}
