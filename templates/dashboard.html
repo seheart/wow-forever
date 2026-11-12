@@ -24,31 +24,7 @@
   </div>
 </section>
 
-<div class="grid">
-  <section class="panel">
-    <div class="panel-head">
-      <h2>Latest</h2>
-      <a class="ghostlink" href="{{ url_for('news_page') }}">All news</a>
-    </div>
-    {% if news %}
-      <ul class="feed">
-        {% for n in news[:8] %}
-          <li>
-            <a href="{{ n['url'] }}" target="_blank" rel="noopener">{{ n['title'] }}</a>
-            <div class="feed-meta">
-              <span class="src">{{ n['source'] }}</span>
-              <span class="muted">{{ n['published']|when }}</span>
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="empty">No items yet. Feeds poll every five minutes, or
-        <a href="{{ url_for('news_page') }}">refresh manually</a>.</p>
-    {% endif %}
-  </section>
-
-  <section class="panel">
+<section class="panel">
     <div class="panel-head"><h2>Roadmap</h2></div>
     <ul class="tl">
       {% for r in road %}
@@ -61,8 +37,7 @@
         </li>
       {% endfor %}
     </ul>
-  </section>
-</div>
+</section>
 
 <div class="panel-head section-head">
   <h2>Rolling</h2>

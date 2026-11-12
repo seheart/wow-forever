@@ -1,6 +1,6 @@
 # Seth's WoW Forever Planner
 
-Planner, prep board and live news for World of Warcraft: Forever (launch Nov 4, 2026).
+Prep board, toons and gear for World of Warcraft: Forever, on the PvP ruleset (launch Nov 4, 2026).
 
 Flask + SQLite, single `app.py`. Port **5858**.
 
@@ -10,22 +10,13 @@ Flask + SQLite, single `app.py`. Port **5858**.
 
 ## Pages
 
-- **Dashboard** — countdowns to launch / beta end / raids, latest news, roadmap, what you're rolling
-- **News** — RSS pull from six sources, keyword-filtered to Forever, with guild-recruitment
-  noise dropped and cross-feed duplicate stories collapsed by title. Polls every 5 min in a
-  background thread; the badge and corner toast update every 20s without a reload. Feeds can
-  be added, refreshed individually, disabled or deleted in the UI.
-- **Realm** — the ruleset decision. Forever is realmless: one megaserver per ruleset, no
-  cross-ruleset or cross-faction grouping. Compares Normal / PvP / Roleplay / Hardcore with
-  pros, cons and a verdict, and records the pick (shown in the nav).
-- **Planner** — race/class matrix and all four racials per race, Alliance / Horde / both. New combos marked ★. Tucked at the bottom of the nav next to the theme toggle; it's reference, not daily use.
+- **Dashboard** — countdowns to launch / beta end / raids, roadmap, what you're rolling
 - **My Toons** — character cards, name-reservation state, launch checklist. Each toon has its
-  own page at `/toons/<id>` with its notes in blocks, that race's four racials pulled from the
-  planner data, and an inline edit form.
+  own page at `/toons/<id>` with its notes in blocks, that race's four racials, and an inline
+  edit form. Toons of a class with a gear list get `/toons/<id>/gear`: level-20 best in slot
+  with a tab per spec, every item linked to Wowhead Forever with hover tooltips (druid for now).
 - **404** — themed, because everything else was done.
 
 ## Notes
-
-Blizzard publishes no working RSS feed. Wowhead's Forever feed carries the blue posts instead.
 
 `data.db` is seeded on first run with the announced races, classes, racials and roadmap. Delete it to reseed.

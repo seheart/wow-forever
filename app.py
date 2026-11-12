@@ -1,27 +1,22 @@
-"""Seth's WoW Forever Planner — race/class planner, prep board, live news. Flask + SQLite."""
+"""Seth's WoW Forever Planner — prep board, toons and their gear. Flask + SQLite."""
 import random
-import re
 import sqlite3
-import threading
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
-import feedparser
-from flask import (Flask, abort, g, jsonify, redirect, render_template, request,
-                   url_for)
+from flask import Flask, abort, g, redirect, render_template, request, url_for
 
 APP_DIR = Path(__file__).parent
 DB_PATH = APP_DIR / "data.db"
 PORT = 5858
+RULESET = "PvP"  # Forever is realmless; this is the megaserver you play on
 
 # launch: November 4 2026, 3:00 PM PST == 23:00 UTC
 LAUNCH = datetime(2026, 11, 4, 23, 0, tzinfo=timezone.utc)
 BETA_END = datetime(2026, 10, 21, 23, 0, tzinfo=timezone.utc)
 RAIDS = datetime(2026, 12, 9, 23, 0, tzinfo=timezone.utc)
 
-POLL_SECONDS = 300
 
 app = Flask(__name__)
 
@@ -45,43 +40,12 @@ def init_db():
     con = sqlite3.connect(DB_PATH)
     con.executescript(
         """
-        CREATE TABLE IF NOT EXISTS feeds (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            url TEXT UNIQUE NOT NULL,
-            keyword TEXT DEFAULT '',      -- only keep entries mentioning this
-            enabled INTEGER DEFAULT 1,
-            last_checked TEXT DEFAULT '',
-            last_status TEXT DEFAULT ''
-        );
-        CREATE TABLE IF NOT EXISTS news (
-            id INTEGER PRIMARY KEY,
-            feed_id INTEGER REFERENCES feeds(id) ON DELETE CASCADE,
-            source TEXT DEFAULT '',
-            title TEXT NOT NULL,
-            url TEXT UNIQUE NOT NULL,
-            published TEXT DEFAULT '',
-            fetched TEXT DEFAULT '',
-            seen INTEGER DEFAULT 0
-        );
         CREATE TABLE IF NOT EXISTS roadmap (
             id INTEGER PRIMARY KEY,
             happens TEXT NOT NULL,        -- YYYY-MM-DD
             label TEXT NOT NULL,
             detail TEXT DEFAULT '',
             firm INTEGER DEFAULT 1        -- 0 = window/estimate
-        );
-        -- Forever is realmless: you pick a ruleset, each one is its own megaserver
-        CREATE TABLE IF NOT EXISTS rulesets (
-            id INTEGER PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            available TEXT DEFAULT 'launch',   -- launch | later
-            summary TEXT DEFAULT '',
-            good TEXT DEFAULT '',
-            bad TEXT DEFAULT '',
-            verdict TEXT DEFAULT '',
-            chosen INTEGER DEFAULT 0,
-            sort INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS races (
             id INTEGER PRIMARY KEY,
@@ -143,17 +107,6 @@ def init_db():
 
 
 def seed(con):
-    # Blizzard publishes no working RSS — Wowhead's Forever feed carries the blue posts.
-    feeds = [
-        ("Wowhead Forever", "https://www.wowhead.com/forever/news/rss/all", ""),
-        ("Wowhead", "https://www.wowhead.com/news/rss/all", "forever"),
-        ("Blizzard Watch", "https://blizzardwatch.com/feed/", "forever"),
-        ("Warcraft Tavern", "https://www.warcrafttavern.com/feed/", "forever"),
-        ("r/classicwow", "https://www.reddit.com/r/classicwow/.rss", "forever"),
-        ("MMO-Champion", "https://www.mmo-champion.com/external.php?type=RSS2", "forever"),
-    ]
-    con.executemany("INSERT OR IGNORE INTO feeds (name, url, keyword) VALUES (?,?,?)", feeds)
-
     roadmap = [
         ("2026-09-12", "Announced at BlizzCon 2026", "Revealed alongside Midnight", 1),
         ("2026-09-17", "Beta opens + live Q&A", "Level 20 cap at open; Q&A 10:30am PDT", 1),
@@ -169,43 +122,6 @@ def seed(con):
     con.executemany(
         "INSERT INTO roadmap (happens, label, detail, firm) VALUES (?,?,?,?)", roadmap
     )
-
-    con.executemany(
-        "INSERT INTO rulesets (name, available, summary, good, bad, verdict, chosen, sort) "
-        "VALUES (?,?,?,?,?,?,?,?)",
-        [
-            ("PvP", "launch",
-             "Contested territory is always dangerous. No flagging, no consent, no opting out.",
-             "The fights happen to you instead of you hunting for them. World PvP actually exists, "
-             "which matters more in Forever than anywhere else because there is no flying to escape "
-             "into. Hardcore characters can transfer here later.",
-             "Locked to ONE FACTION - you cannot roll Horde alts at all. Faction-balance limits "
-             "similar to Season of Discovery may block new character creation if Alliance floods "
-             "the ruleset. Thresholds unpublished.",
-             "The pick. PvP is the whole reason you are playing, and Normal would make you go "
-             "looking for what this hands you.", 1, 1),
-            ("Normal", "launch",
-             "PvP by mutual consent. You flag when you want a fight.",
-             "Both factions available, so alts are unrestricted. Quieter levelling, no ganking "
-             "while you are three mobs deep.",
-             "You have to go find PvP. World PvP is largely dead on consent realms because the "
-             "people who want it are already on PvP.",
-             "Wrong ruleset for how you play. Only pick this if you want the levelling to be "
-             "calm.", 0, 2),
-            ("Roleplay", "launch",
-             "Normal rules plus enforced naming conventions and behaviour standards.",
-             "Best community and the most immersive open world by a distance.",
-             "Strict, GM-enforced naming. Rumpleforeskin and Hotlunch would both be at real risk "
-             "here, and a forced rename on a reserved name burns the slot.",
-             "Avoid. The naming enforcement alone rules it out for this roster.", 0, 3),
-            ("Hardcore", "later",
-             "Permanent death, in a closed-off system of its own. 'Winter and beyond'.",
-             "The highest-stakes version of the game. For the first time a dead character can "
-             "transfer out to PvP rather than only to Normal.",
-             "Not available at launch, no date beyond 'winter'. One mistake ends the character.",
-             "Not a launch decision. Worth revisiting once it ships, since dead characters can "
-             "now land on PvP where you already live.", 0, 4),
-        ])
 
     races = [
         # slug, name, faction, note, sort, classes[(name,new)], racials[(name,kind,effect,tag)]
@@ -294,28 +210,14 @@ def seed(con):
         "INSERT INTO characters (name, race, klass, spec, purpose, priority, notes) "
         "VALUES (?,?,?,?,?,?,?)",
         [
-            ("Chosan", "Human", "Hunter", "Marksmanship", "Main - PvP and questing", 1,
-             "Will to Survive breaks stuns without burning the PvP trinket; Perception sees Rogue openers. "
-             "New combo in Forever."),
-            ("Arborna", "Night Elf", "Druid", "Feral", "The class I actually love", 2,
+            ("Arboranna", "Night Elf", "Druid", "Balance → Restoration",
+             "Main - healer, Balance while questing", 1,
              "Elune's Light is a 15 sec +10% crit cooldown - good on feral openers and on heals. "
              "Skyborne Druid is the paid alternative if the custom forms land well."),
         ],
     )
     plans = {
-        "Chosan": [
-            ("Level Beast Mastery, whatever the endgame spec is",
-             "The pet tanking is why hunter levels faster than anything else."),
-            ("Deadly Aspects", "Damage while Aspect of the Hawk is up, which is always."),
-            ("Focused Fire", "Straight damage."),
-            ("Summon Hawk", "New in Forever, part of the 1-30 kit."),
-            ("Pathfinding", "Run speed is levelling speed."),
-            ("Improved Revive Pet", "Quality of life once the above are full."),
-            ("Around 40: decide BM or Survival",
-             "Survival is the melee build and holds Survival Tactics, which is what makes "
-             "the trap/Feign Death escape land."),
-        ],
-        "Arborna": [
+        "Arboranna": [
             ("Ferocity (5 points)", "Value in every fight, works in Cat and Bear."),
             ("Heart of the Wild (3 points)", ""),
             ("Feral Swiftness (2 points)", ""),
@@ -335,114 +237,16 @@ def seed(con):
     con.executemany(
         "INSERT INTO checklist (task, due, sort) VALUES (?,?,?)",
         [
-            ("Reserve names: Chosan and Arborna", "2026-10-27", 1),
+            ("Reserve name: Arboranna", "2026-10-27", 1),
             ("Decide: buy a Skyborne pack, or stay on sub only", "2026-11-04", 2),
             ("Watch Sept 17 Q&A VOD for a dual spec answer", "", 3),
-            ("Check whether Sword Spec crit applies to ranged shots", "", 4),
-            ("Pick a realm", "2026-11-04", 5),
             ("Look at Skyborne Druid forms on a beta stream", "2026-11-04", 6),
         ],
     )
     con.commit()
 
 
-# ---------- news polling ----------
-# forum feeds carry a lot of guild recruitment; none of it is news
-NOISE = re.compile(
-    r"recruit|\bLF[MG]\b|looking for|\bWTS\b|\bWTB\b|boost(ing)?\b"
-    r"|\[(NA|EU|OCE|Alliance|Horde|PvP|PvE|RP)\]",
-    re.I,
-)
-
-
-
-def fetch_feeds(only_id=None):
-    """Pull every enabled feed. Returns how many new items landed."""
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    q = "SELECT * FROM feeds WHERE enabled = 1"
-    rows = con.execute(q + (" AND id = ?" if only_id else ""),
-                       (only_id,) if only_id else ()).fetchall()
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    added = 0
-    for f in rows:
-        status = "ok"
-        try:
-            parsed = feedparser.parse(f["url"])
-            if parsed.bozo and not parsed.entries:
-                status = f"error: {parsed.bozo_exception}"[:120]
-            kw = (f["keyword"] or "").lower()
-            for e in parsed.entries[:60]:
-                title = (e.get("title") or "").strip()
-                link = (e.get("link") or "").strip()
-                if not title or not link:
-                    continue
-                blob = f"{title} {e.get('summary', '')}".lower()
-                if kw and kw not in blob:
-                    continue
-                if NOISE.search(title):
-                    continue
-                # two feeds often carry the same story under different urls
-                if con.execute("SELECT 1 FROM news WHERE title = ?", (title,)).fetchone():
-                    continue
-                pub = e.get("published") or e.get("updated") or ""
-                cur = con.execute(
-                    "INSERT OR IGNORE INTO news (feed_id, source, title, url, published, fetched) "
-                    "VALUES (?,?,?,?,?,?)",
-                    (f["id"], f["name"], title, link, pub, now),
-                )
-                added += cur.rowcount
-        except Exception as exc:  # a dead feed should never take the poller down
-            status = f"error: {exc}"[:120]
-        con.execute("UPDATE feeds SET last_checked = ?, last_status = ? WHERE id = ?",
-                    (now, status, f["id"]))
-    con.commit()
-    con.close()
-    return added
-
-
-def poller():
-    while True:
-        try:
-            fetch_feeds()
-        except Exception:
-            pass
-        time.sleep(POLL_SECONDS)
-
-
-def start_poller():
-    threading.Thread(target=poller, daemon=True).start()
-
-
 # ---------- helpers ----------
-@app.template_filter("when")
-def when_filter(raw):
-    """Feed dates arrive in a dozen formats. Render whatever parses as '3h ago'."""
-    if not raw:
-        return ""
-    parsed = None
-    for fmt in ("%a, %d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S %Z",
-                "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S"):
-        try:
-            parsed = datetime.strptime(raw.strip(), fmt)
-            break
-        except ValueError:
-            continue
-    if parsed is None:
-        return raw[:16]
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    mins = (datetime.now(timezone.utc) - parsed).total_seconds() / 60
-    if mins < 60:
-        return f"{int(max(mins, 0))}m ago"
-    if mins < 60 * 48:
-        return f"{int(mins // 60)}h ago"
-    if mins < 60 * 24 * 14:
-        return f"{int(mins // 1440)}d ago"
-    return parsed.strftime("%b %-d, %Y")
-
-
-
 def countdowns():
     now = datetime.now(timezone.utc)
     def delta(target):
@@ -454,17 +258,12 @@ def countdowns():
 
 @app.context_processor
 def inject_nav():
-    unseen = db().execute("SELECT COUNT(*) c FROM news WHERE seen = 0").fetchone()["c"]
-    picked = db().execute("SELECT name FROM rulesets WHERE chosen = 1").fetchone()
-    return {"unseen": unseen, "picked": picked["name"] if picked else None}
+    return {"ruleset": RULESET}
 
 
 # ---------- routes ----------
 @app.route("/")
 def dashboard():
-    news = db().execute(
-        "SELECT * FROM news ORDER BY id DESC LIMIT 12"
-    ).fetchall()
     road = db().execute("SELECT * FROM roadmap ORDER BY happens").fetchall()
     chars = db().execute(
         "SELECT * FROM characters ORDER BY priority, id"
@@ -472,86 +271,9 @@ def dashboard():
     todo = db().execute(
         "SELECT * FROM checklist WHERE done = 0 ORDER BY sort, id"
     ).fetchall()
-    return render_template("dashboard.html", active="dashboard", news=news, road=road,
+    return render_template("dashboard.html", active="dashboard", road=road,
                            chars=chars, todo=todo, cd=countdowns(),
                            today=datetime.now().strftime("%Y-%m-%d"))
-
-
-@app.route("/news")
-def news_page():
-    items = db().execute("SELECT * FROM news ORDER BY id DESC LIMIT 200").fetchall()
-    feeds = db().execute("SELECT * FROM feeds ORDER BY name").fetchall()
-    # mark after reading so this render can still flag what arrived since last visit
-    fresh = {r["id"] for r in items if not r["seen"]}
-    db().execute("UPDATE news SET seen = 1 WHERE seen = 0")
-    db().commit()
-    return render_template("news.html", active="news", items=items, feeds=feeds, fresh=fresh)
-
-
-@app.post("/news/refresh")
-def news_refresh():
-    fetch_feeds()
-    return redirect(url_for("news_page"))
-
-
-@app.post("/feeds/<int:feed_id>/refresh")
-def feed_refresh(feed_id):
-    fetch_feeds(only_id=feed_id)
-    return redirect(url_for("news_page"))
-
-
-@app.post("/feeds/add")
-def feed_add():
-    db().execute(
-        "INSERT OR IGNORE INTO feeds (name, url, keyword) VALUES (?,?,?)",
-        (request.form["name"].strip(), request.form["url"].strip(),
-         request.form.get("keyword", "").strip()),
-    )
-    db().commit()
-    return redirect(url_for("news_page"))
-
-
-@app.post("/feeds/<int:feed_id>/toggle")
-def feed_toggle(feed_id):
-    db().execute("UPDATE feeds SET enabled = NOT enabled WHERE id = ?", (feed_id,))
-    db().commit()
-    return redirect(url_for("news_page"))
-
-
-@app.post("/feeds/<int:feed_id>/delete")
-def feed_delete(feed_id):
-    db().execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
-    db().commit()
-    return redirect(url_for("news_page"))
-
-
-@app.get("/api/news")
-def api_news():
-    """Poll target for the live badge — newest id and unseen count."""
-    row = db().execute(
-        "SELECT COALESCE(MAX(id), 0) top, SUM(seen = 0) unseen FROM news"
-    ).fetchone()
-    latest = db().execute(
-        "SELECT title, url, source FROM news ORDER BY id DESC LIMIT 5"
-    ).fetchall()
-    return jsonify({
-        "top": row["top"],
-        "unseen": row["unseen"] or 0,
-        "latest": [dict(r) for r in latest],
-    })
-
-
-@app.get("/realm")
-def realm():
-    rows = db().execute("SELECT * FROM rulesets ORDER BY sort").fetchall()
-    return render_template("realm.html", active="realm", rows=rows)
-
-
-@app.post("/realm/<int:ruleset_id>/choose")
-def realm_choose(ruleset_id):
-    db().execute("UPDATE rulesets SET chosen = (id = ?)", (ruleset_id,))
-    db().commit()
-    return redirect(url_for("realm"))
 
 
 # ---------- gear: Druid, Alliance, levelling into 20 ----------
@@ -772,36 +494,40 @@ def wowhead_url(name):
 app.jinja_env.globals["wowhead"] = wowhead_url
 
 
+# Gear lives on the toon: pick the list by class. Add a class here to give its toons a page.
+GEAR_BY_CLASS = {"druid": GEAR_SPECS}
+
+
+def default_spec(toon_spec, specs):
+    """First spec named in the toon's spec text ('Balance → Restoration' → balance)."""
+    text = (toon_spec or "").lower()
+    hits = [(text.find(sp["name"].lower()[:4]), key) for key, sp in specs.items()]
+    hits = [h for h in hits if h[0] >= 0]
+    return min(hits)[1] if hits else next(iter(specs))
+
+
+@app.get("/toons/<int:char_id>/gear")
+def toon_gear(char_id):
+    c = db().execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
+    if c is None:
+        abort(404)
+    specs = GEAR_BY_CLASS.get((c["klass"] or "").lower())
+    if not specs:
+        return render_template("gear.html", active="toons", c=c, specs=None)
+    spec = request.args.get("spec") or default_spec(c["spec"], specs)
+    if spec not in specs:
+        spec = default_spec(c["spec"], specs)
+    return render_template("gear.html", active="toons", c=c, specs=specs, spec=spec,
+                           s=specs[spec], sources=GEAR_SOURCES)
+
+
 @app.get("/gear")
 def gear():
-    spec = request.args.get("spec", "balance")
-    if spec not in GEAR_SPECS:
-        spec = "balance"
-    return render_template("gear.html", active="gear", specs=GEAR_SPECS, spec=spec,
-                           s=GEAR_SPECS[spec], sources=GEAR_SOURCES)
-
-
-@app.get("/planner")
-def planner():
-    faction = request.args.get("faction", "Alliance")
-    where = "" if faction == "all" else "WHERE faction = ?"
-    args = () if faction == "all" else (faction,)
-    races = db().execute(f"SELECT * FROM races {where} ORDER BY sort", args).fetchall()
-    out = []
-    for r in races:
-        out.append({
-            "race": r,
-            "classes": db().execute(
-                "SELECT * FROM race_classes WHERE race_id = ? ORDER BY id", (r["id"],)
-            ).fetchall(),
-            "racials": db().execute(
-                "SELECT * FROM racials WHERE race_id = ? ORDER BY kind DESC, id", (r["id"],)
-            ).fetchall(),
-        })
-    all_classes = [c["klass"] for c in db().execute(
-        "SELECT DISTINCT klass FROM race_classes ORDER BY klass").fetchall()]
-    return render_template("planner.html", active="planner", rows=out,
-                           faction=faction, all_classes=all_classes)
+    """Old bookmark: send it to the first toon that has a gear list."""
+    for c in db().execute("SELECT id, klass FROM characters ORDER BY priority, id"):
+        if (c["klass"] or "").lower() in GEAR_BY_CLASS:
+            return redirect(url_for("toon_gear", char_id=c["id"], **request.args))
+    return redirect(url_for("toons"))
 
 
 @app.get("/toons")
@@ -818,7 +544,7 @@ def toon(char_id):
     c = db().execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
     if c is None:
         abort(404)
-    # pull the race's kit straight off the planner data
+    # pull the race's kit straight off the race data
     race = db().execute("SELECT * FROM races WHERE name = ?", (c["race"],)).fetchone()
     racials, klasses, playable = [], [], None
     if race:
@@ -835,7 +561,8 @@ def toon(char_id):
     # notes are kept as one field, split into blocks on ||
     blocks = [b.strip() for b in (c["notes"] or "").split("||") if b.strip()]
     return render_template("toon.html", active="toons", c=c, race=race, racials=racials,
-                           klasses=klasses, playable=playable, blocks=blocks, plan=plan)
+                           klasses=klasses, playable=playable, blocks=blocks, plan=plan,
+                           has_gear=(c["klass"] or "").lower() in GEAR_BY_CLASS)
 
 
 @app.post("/toons/<int:char_id>/edit")
@@ -971,7 +698,4 @@ def server_error(_):
 init_db()
 
 if __name__ == "__main__":
-    import os
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
-        start_poller()
     app.run(debug=True, port=PORT)

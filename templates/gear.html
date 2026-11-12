@@ -1,16 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Seth's WoW Forever Planner — Gear{% endblock %}
+{% block title %}Seth's WoW Forever Planner — {{ c['name'] }} gear{% endblock %}
 {% block content %}
 
+<a class="back" href="{{ url_for('toon', char_id=c['id']) }}">← {{ c['name'] or 'Toon' }}</a>
+
 <header class="page-head">
-  <h1>Gear</h1>
-  <p class="sub">Night Elf Druid, level 18, leaving Auberdine for Westfall. Best in slot for
-    the level-20 bracket, in the order you'll reach it.</p>
+  <h1>{{ c['name'] }} · Gear</h1>
+  <p class="sub">{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}.
+    {% if specs %}Best in slot for the level-20 bracket, in the order you'll reach it:
+    Darkshore, then Westfall and the Deadmines.{% endif %}</p>
 </header>
+
+{% if not specs %}
+  <p class="empty">No gear list for {{ c['klass'] or 'this class' }} yet.</p>
+{% else %}
 
 <div class="tabs">
   {% for key, sp in specs.items() %}
-    <a class="{{ 'on' if spec == key }}" href="{{ url_for('gear', spec=key) }}">{{ sp.name }}
+    <a class="{{ 'on' if spec == key }}" href="{{ url_for('toon_gear', char_id=c['id'], spec=key) }}">{{ sp.name }}
       <span class="muted small">· {{ sp.role }}</span></a>
   {% endfor %}
 </div>
@@ -76,16 +83,22 @@
 <p class="muted small" style="margin-top:14px">Sources, checked Nov 11, 2026:
   {% for name, url in sources %}<a href="{{ url }}" target="_blank" rel="noopener">{{ name }}</a>{{ ' · ' if not loop.last }}{% endfor %}
 </p>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <style>
-  a.wh { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--muted); }
-  a.wh:hover { color: var(--gold); border-bottom-color: var(--gold); }
-  a.chip.wh { border-bottom: 1px solid var(--line); }
-  a.chip.wh.mine { border-color: var(--gold); color: var(--gold); }
+  a.wh { text-decoration: none; font-weight: 600; color: var(--link); }
+  a.wh:hover { text-decoration: underline; }
+  a.wh b { font-weight: inherit; }
+  td:nth-child(2) { min-width: 240px; }
+  td:nth-child(3) { min-width: 200px; }
+  a.chip.wh { border: 1px solid var(--line); }
+  a.chip.wh.mine { border-color: var(--gold); background: var(--gold-soft); }
+  .tabs a { color: var(--muted); }
+  .tabs a.on { color: var(--gold); }
 </style>
-<!-- Wowhead hover tooltips; keep our own link text and colours -->
-<script>var whTooltips = {colorLinks: false, iconizeLinks: false, renameLinks: false};</script>
+<!-- Wowhead hover tooltips; colour item links by quality and add their icons -->
+<script>var whTooltips = {colorLinks: true, iconizeLinks: true, iconSize: 'small', renameLinks: false};</script>
 <script src="https://wow.zamimg.com/js/tooltips.js"></script>
 {% endblock %}

@@ -48,6 +48,15 @@
   {% endif %}
 </div>
 
+{% if has_gear %}
+  <div class="panel-head section-head">
+    <h2>Gear</h2>
+    <a class="ghostlink" href="{{ url_for('toon_gear', char_id=c['id']) }}">Best in slot →</a>
+  </div>
+  <p class="sub small">Level-20 best in slot for {{ c['klass'] }}, with a tab per spec and
+    every item linked to Wowhead.</p>
+{% endif %}
+
 <div class="panel-head section-head">
   <h2>Levelling plan</h2>
   {% if plan %}
@@ -93,7 +102,6 @@
 {% if race %}
   <div class="panel-head section-head">
     <h2>{{ race['name'] }} racials</h2>
-    <a class="ghostlink" href="{{ url_for('planner', faction=race['faction']) }}">Planner</a>
   </div>
   <section class="panel">
     <div class="racial-grid">
