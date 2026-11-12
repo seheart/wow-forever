@@ -31,6 +31,7 @@
     News <span class="badge" id="news-badge" {% if not unseen %}hidden{% endif %}>{{ unseen }}</span>
   </a>
   <a class="nav-item {{ 'active' if active=='toons' }}" href="{{ url_for('toons') }}">My Toons</a>
+  <a class="nav-item {{ 'active' if active=='gear' }}" href="{{ url_for('gear') }}">Gear</a>
   <a class="nav-item {{ 'active' if active=='realm' }}" href="{{ url_for('realm') }}">
     Realm {% if picked %}<span class="badge quiet">{{ picked }}</span>{% endif %}
   </a>

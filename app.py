@@ -6,6 +6,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import feedparser
 from flask import (Flask, abort, g, jsonify, redirect, render_template, request,
@@ -551,6 +552,233 @@ def realm_choose(ruleset_id):
     db().execute("UPDATE rulesets SET chosen = (id = ?)", (ruleset_id,))
     db().commit()
     return redirect(url_for("realm"))
+
+
+# ---------- gear: Druid, Alliance, levelling into 20 ----------
+# Static reference, not seeded into data.db (so it never needs a reseed).
+# Fan-compiled lists (timesaver.gg first, foreverchanges.pro for notes), checked
+# 2026-11-11. They disagree in places and drop rates quoted there are Classic numbers.
+GEAR_SOURCES = [
+    ("timesaver.gg — Druid leveling gear 1-60",
+     "https://timesaver.gg/tools/wow-forever/leveling-gear/druid/balance"),
+    ("ForeverChanges — Druid BiS, level 20",
+     "https://foreverchanges.pro/bis/level-20/druid/balance"),
+    ("Wowhead Forever — Westfall",
+     "https://www.wowhead.com/forever/zone=40/westfall"),
+]
+
+# Each section row: (slot, item, source, where, note)
+GEAR_SPECS = {
+    "balance": {
+        "name": "Balance",
+        "role": "Questing now",
+        "blurb": "What you level in. Cheap to grab: most of it is Darkshore and Westfall "
+                 "quests plus one Deadmines run.",
+        "stats": [("Spell Power ≈ Arcane > Nature > Intellect", "Stat priority"),
+                  ("Leather over cloth", "Tie-breaker: armour while questing")],
+        "sections": [
+            ("Before you leave Darkshore",
+             "You're in Auberdine now. These are quest rewards right there.", [
+                ("Wrist", "Ridgeback Bracers", "Quest: WANTED: Murkdeep!", "Darkshore",
+                 "Also the Resto pick, so it covers both specs."),
+                ("Hands", "Windfelt Gloves", "Quest: The Absent Minded Prospector",
+                 "Darkshore", "Also the Resto pick."),
+                ("Waist", "Aquarius Belt", "Druid quest: Aquatic Form", "Class quest, level 16",
+                 "You're 18, so it's open. ForeverChanges lists Idol of Shifting Tides "
+                 "from the same quest; take whichever the reward offers."),
+            ]),
+            ("Westfall & the Deadmines", "", [
+                ("Feet", "Boots of the People's Militia", "Quest: The People's Militia",
+                 "Westfall", "Plain Westfall quest, no dungeon."),
+                ("Main Hand (2H)", "Emberstone Staff", "Captain Greenskin", "The Deadmines",
+                 "The level-20 Balance weapon. Until it drops, take Staff of Westfall from "
+                 "The Defias Brotherhood, which you'll want for Resto anyway."),
+                ("Legs", "Dreamer's Leggings", "Quest: Underground Assault", "The Deadmines", ""),
+                ("Finger", "Lavishly Jeweled Ring", "Gilnid", "The Deadmines", ""),
+                ("Trinket", "Lookie's Spyglass", "Cookie", "The Deadmines", ""),
+            ]),
+            ("Rest of the level-20 set", "Optional. Worth it if a group forms.", [
+                ("Finger", "Minor Channeling Ring", "Quest: WANTED: Chok'sul", "Loch Modan",
+                 "Also the Resto pick."),
+                ("Neck", "Tarnished Locket", "Quest: Remember That I Love You",
+                 "Ruins of Lordaeron", ""),
+                ("Shoulder", "Serpent's Shoulders", "Lady Anacondra", "Wailing Caverns", ""),
+                ("Back", "Sporid Cape", "Verdan the Everliving", "Wailing Caverns", ""),
+                ("Chest", "Armor of the Fang", "Lord Pythas", "Wailing Caverns",
+                 "Also the Resto pick."),
+                ("Head", "Totemic Leather Hood", "Crafted", "Leatherworking 100",
+                 "Crafter-only."),
+            ]),
+        ],
+        "weapons": [(5, "Apprentice's Spellstaff"), (10, "Thornroot Club"),
+                    (15, "Fang of Magmatus"), (20, "Emberstone Staff"),
+                    (25, "Rod of the Sleepwalker")],
+        "next": [
+            ("Main Hand (2H)", "Rod of the Sleepwalker", "Twilight Lord Kelris", "Blackfathom Deeps"),
+            ("Shoulder", "Executioner Mantle", "Targorr the Dread", "The Stockade"),
+            ("Back", "Thornweaver Drape", "Roogug", "Razorfen Kraul"),
+            ("Wrist", "Black Wolf Bracers", "Fenrus the Devourer", "Shadowfang Keep"),
+            ("Waist", "Girdle of the Blindwatcher", "Odo the Blindwatcher", "Shadowfang Keep"),
+            ("Legs", "Dark Ritual Leggings", "Quest: Blackfathom Villainy", "Blackfathom Deeps"),
+            ("Feet", "Disjointed Shoes", "Quest: WANTED: Incinerator Gar'im", "Redridge Mountains"),
+            ("Finger", "Dark Horde Band", "Targorr the Dread", "The Stockade"),
+        ],
+    },
+    "resto": {
+        "name": "Restoration",
+        "role": "Healing groups",
+        "blurb": "Your real spec. Collect it as you go and keep it in your bags for dungeons, "
+                 "since healers get the group invites.",
+        "stats": [("Healing ≈ Spell Power > Intellect > Spirit", "Stat priority"),
+                  ("Stamina barely matters", "Spell damage counts for nothing")],
+        "sections": [
+            ("Before you leave Darkshore", "Same two quests as Balance. One reward, both specs.", [
+                ("Wrist", "Ridgeback Bracers", "Quest: WANTED: Murkdeep!", "Darkshore", ""),
+                ("Hands", "Windfelt Gloves", "Quest: The Absent Minded Prospector",
+                 "Darkshore", ""),
+            ]),
+            ("Westfall & the Deadmines", "", [
+                ("Main Hand (2H)", "Staff of Westfall", "Quest: The Defias Brotherhood",
+                 "Westfall → The Deadmines",
+                 "The Resto weapon. Pick it over Tunic of Westfall. The chain starts at "
+                 "Sentinel Hill."),
+                ("Feet", "Miner's Workboots", "Quest: Oh Brother...", "The Deadmines", ""),
+                ("Legs", "Stonemason Trousers", "Defias Blackguard", "The Deadmines", ""),
+                ("Finger", "Lavishly Jeweled Ring", "Gilnid", "The Deadmines", ""),
+                ("Trinket", "Lookie's Spyglass", "Cookie", "The Deadmines", ""),
+            ]),
+            ("Rest of the level-20 set", "", [
+                ("Finger", "Minor Channeling Ring", "Quest: WANTED: Chok'sul", "Loch Modan", ""),
+                ("Chest", "Armor of the Fang", "Lord Pythas", "Wailing Caverns", ""),
+                ("Shoulder", "Serpent's Shoulders", "Lady Anacondra", "Wailing Caverns", ""),
+                ("Neck", "Ephemeral Choker", "Faldrim Anvilmar", "The Hall of Thanes",
+                 "Hall of Thanes is new in Forever."),
+                ("Back", "Spiritwraith Drape", "Faldrim Anvilmar", "The Hall of Thanes",
+                 "Same boss as the choker."),
+                ("Waist", "Dusty Belt", "Quest: The Restless Dead", "The Hall of Thanes", ""),
+                ("Head", "Wisdom's Leather Hood", "Crafted", "Leatherworking 100",
+                 "Crafter-only."),
+                ("Finger", "Philanthropist's Ring", "Quest: Greater Friend of the Library",
+                 "Twenty books", "ForeverChanges' top ring, if you're collecting books."),
+            ]),
+        ],
+        "weapons": [(5, "Apprentice's Spellstaff"), (10, "Thornroot Club"),
+                    (15, "Fang of Magmatus"), (20, "Staff of Westfall"),
+                    (25, "Odo's Ley Staff")],
+        "next": [
+            ("Main Hand (2H)", "Odo's Ley Staff", "Odo the Blindwatcher", "Shadowfang Keep"),
+            ("Shoulder", "Executioner Mantle", "Targorr the Dread", "The Stockade"),
+            ("Back", "Glowing Thresher Cape", "Old Serra'kis", "Blackfathom Deeps"),
+            ("Hands", "Naga Battle Gloves", "Lady Sarevess", "Blackfathom Deeps"),
+            ("Waist", "Girdle of the Blindwatcher", "Odo the Blindwatcher", "Shadowfang Keep"),
+            ("Legs", "Dark Ritual Leggings", "Quest: Blackfathom Villainy", "Blackfathom Deeps"),
+            ("Feet", "Ambassador's Boots", "Quest: Crime and Punishment", "The Stockade"),
+            ("Trinket", "Worgenbane Talisman", "Commander Springvale", "Shadowfang Keep"),
+        ],
+    },
+    "feral": {
+        "name": "Feral",
+        "role": "Reference",
+        "blurb": "Kept for reference, in case you go Cat or Bear later.",
+        "stats": [("Agility > Strength > Stamina", "Stat priority in Cat"),
+                  ("Weapon damage first", "Forms scale with it · 14 AP per weapon DPS")],
+        "sections": [
+            ("Westfall & the Deadmines", "", [
+                ("Chest", "Tunic of Westfall", "Quest: The Defias Brotherhood",
+                 "Westfall → The Deadmines", "Same quest as Staff of Westfall: one or the other."),
+                ("Main Hand (2H)", "Smite's Mighty Hammer", "Mr. Smite", "The Deadmines",
+                 "Biggest Feral upgrade; forms scale with weapon damage."),
+                ("Wrist", "Bravo's Armbands", "Quest: Underground Assault", "The Deadmines", ""),
+                ("Waist", "Blackened Defias Belt", "Captain Greenskin", "The Deadmines", ""),
+                ("Finger", "First Mate Band", "Mr. Smite", "The Deadmines", ""),
+                ("Finger", "Lavishly Jeweled Ring", "Gilnid", "The Deadmines", ""),
+                ("Back", "Cape of the Brotherhood", "Edwin VanCleef", "The Deadmines", ""),
+                ("Trinket", "Lookie's Spyglass", "Cookie", "The Deadmines", ""),
+            ]),
+            ("Rest of the level-20 set", "", [
+                ("Relic", "Idol of Shifting Tides", "Druid quest: Aquatic Form",
+                 "Class quest, level 16", ""),
+                ("Neck", "Erudite's Amulet", "Quest: Friend of the Library", "Ten books", ""),
+                ("Head", "Brawler's Leather Hood", "Crafted", "Leatherworking 100", ""),
+                ("Shoulder", "Serpent's Shoulders", "Lady Anacondra", "Wailing Caverns", ""),
+                ("Hands", "Gloves of the Fang", "Druid of the Fang (trash)", "Wailing Caverns", ""),
+                ("Legs", "Leggings of the Fang", "Lord Cobrahn", "Wailing Caverns", ""),
+                ("Feet", "Footpads of the Fang", "Lord Serpentis", "Wailing Caverns", ""),
+                ("Back", "Glowing Lizardscale Cloak", "Skum", "Wailing Caverns", ""),
+            ]),
+        ],
+        "weapons": [(5, "Northshire Hammer"), (10, "Honed Greathammer"),
+                    (15, "Ironforge Greathammer"), (20, "Smite's Mighty Hammer"),
+                    (25, "Headbasher")],
+        "next": [
+            ("Main Hand (2H)", "Headbasher", "Quest: The Fury Runs Deep", "The Stockade"),
+            ("Wrist", "Demonhide Bracers", "Quest: Morganth", "Redridge Mountains"),
+            ("Legs", "Worgpelt Leggings", "Wolf Master Nandos", "Shadowfang Keep"),
+            ("Head", "Geomancer Headdress", "Roogug", "Razorfen Kraul"),
+            ("Finger", "Silverlaine's Family Seal", "Baron Silverlaine", "Shadowfang Keep"),
+        ],
+    },
+}
+
+
+def gear_item_names():
+    for s in GEAR_SPECS.values():
+        for _, _, rows in s["sections"]:
+            yield from (r[1] for r in rows)
+        yield from (n for _, n in s["weapons"])
+        yield from (r[1] for r in s["next"])
+
+
+# Wowhead Forever item ids, resolved by exact name from wowhead.com/forever search
+# on 2026-11-11. Forever reuses Classic ids for old items; reworked/new ones are 24xxxx+.
+WOWHEAD_IDS = {
+    "Blackened Defias Belt": 10403, "Bravo's Armbands": 270015,
+    "Brawler's Leather Hood": 252504, "Cape of the Brotherhood": 5193,
+    "Demonhide Bracers": 270033, "Erudite's Amulet": 277204, "First Mate Band": 284715,
+    "Footpads of the Fang": 10411, "Geomancer Headdress": 274155,
+    "Gloves of the Fang": 10413, "Glowing Lizardscale Cloak": 6449, "Headbasher": 1264,
+    "Honed Greathammer": 257345, "Idol of Shifting Tides": 263411,
+    "Ironforge Greathammer": 279895, "Lavishly Jeweled Ring": 1156,
+    "Leggings of the Fang": 10410, "Lookie's Spyglass": 273298,
+    "Northshire Hammer": 248005, "Serpent's Shoulders": 5404,
+    "Silverlaine's Family Seal": 6321, "Smite's Mighty Hammer": 7230,
+    "Tunic of Westfall": 2041, "Worgpelt Leggings": 273647,
+    # Balance + Resto
+    "Ambassador's Boots": 2033, "Apprentice's Spellstaff": 248008, "Aquarius Belt": 16608,
+    "Armor of the Fang": 6473, "Black Wolf Bracers": 3230,
+    "Boots of the People's Militia": 270006, "Dark Horde Band": 273806,
+    "Dark Ritual Leggings": 270031, "Disjointed Shoes": 277226,
+    "Dreamer's Leggings": 270016, "Dusty Belt": 279897, "Emberstone Staff": 5201,
+    "Ephemeral Choker": 270227, "Executioner Mantle": 273804, "Fang of Magmatus": 271095,
+    "Girdle of the Blindwatcher": 6319, "Glowing Thresher Cape": 6901,
+    "Miner's Workboots": 270013, "Minor Channeling Ring": 1449, "Naga Battle Gloves": 888,
+    "Odo's Ley Staff": 6318, "Philanthropist's Ring": 281635, "Ridgeback Bracers": 15403,
+    "Rod of the Sleepwalker": 1155, "Spiritwraith Drape": 271097, "Sporid Cape": 6629,
+    "Staff of Westfall": 2042, "Stonemason Trousers": 1934, "Tarnished Locket": 279870,
+    "Thornroot Club": 5587, "Thornweaver Drape": 274149, "Totemic Leather Hood": 252448,
+    "Windfelt Gloves": 5630, "Wisdom's Leather Hood": 252507,
+    "Worgenbane Talisman": 273643,
+}
+
+
+def wowhead_url(name):
+    """Item page on Wowhead Forever; falls back to a search if the id isn't known."""
+    iid = WOWHEAD_IDS.get(name)
+    if iid:
+        return f"https://www.wowhead.com/forever/item={iid}"
+    return "https://www.wowhead.com/forever/search?q=" + quote(name)
+
+
+app.jinja_env.globals["wowhead"] = wowhead_url
+
+
+@app.get("/gear")
+def gear():
+    spec = request.args.get("spec", "balance")
+    if spec not in GEAR_SPECS:
+        spec = "balance"
+    return render_template("gear.html", active="gear", specs=GEAR_SPECS, spec=spec,
+                           s=GEAR_SPECS[spec], sources=GEAR_SOURCES)
 
 
 @app.get("/planner")
