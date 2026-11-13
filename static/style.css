@@ -323,3 +323,15 @@ main a:not([class]):hover { text-decoration: underline; }
 .panel, .stat, .toon-card { box-shadow: 0 1px 0 rgba(0,0,0,.25); }
 th { background: rgba(127,127,127,.06); padding-left: 8px; }
 td:first-child { padding-left: 8px; }
+
+/* character-sheet snapshot */
+.sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 20px; margin: 0; }
+.sheet div { display: flex; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--line); padding: 4px 0; }
+.sheet dt { color: var(--muted); }
+.sheet dd { margin: 0; color: var(--gold); font-weight: 600; }
+
+/* xp toward next level */
+.xpbar { height: 6px; margin-top: 8px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.xpbar span { display: block; height: 100%; background: #9d4dc7; }

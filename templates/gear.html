@@ -24,6 +24,53 @@
 
 <p class="sub" style="margin-bottom:14px">{{ s.blurb }}</p>
 
+<h2 class="section-head">Wearing now</h2>
+{% set ns = namespace(bis=0, slots=0) %}
+<section class="panel">
+  <table class="worn">
+    <thead><tr><th>Slot</th><th>Equipped</th><th>{{ s.name }} BiS</th></tr></thead>
+    <tbody>
+    {% for sid, (label, bis_slot) in inv_slots.items() if bis_slot in bis or sid in worn %}
+      {% set w = worn.get(sid) %}
+      {% set picks = bis.get(bis_slot, []) %}
+      {% set hit = w and w.name in picks %}
+      {% if picks %}{% set ns.slots = ns.slots + 1 %}{% endif %}
+      {% if hit %}{% set ns.bis = ns.bis + 1 %}{% endif %}
+      <tr class="{{ 'hit' if hit }} {{ 'gap' if not w }}">
+        <td class="muted small">{{ label }}</td>
+        <td>
+          {% if w %}
+            <a class="wh q{{ w.q if w.q is not none }}" href="{{ wowhead(w.name) }}" target="_blank" rel="noopener"><b>{{ w.name }}</b></a>
+            {% if hit %}<span class="pill tick">BiS</span>{% endif %}
+          {% else %}<span class="muted">Empty</span>{% endif %}
+        </td>
+        <td class="small">
+          {% if hit %}<span class="muted">Done</span>
+          {% else %}
+            {% for item in picks %}<a class="wh" href="{{ wowhead(item) }}" target="_blank" rel="noopener">{{ item }}</a>{{ ' or ' if not loop.last }}{% else %}<span class="muted">-</span>{% endfor %}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small" style="margin:10px 0 0">
+    {% if worn %}{{ ns.bis }} of {{ ns.slots }} slots already best in slot for {{ s.name }}.{% else %}No gear saved yet.{% endif %}
+  </p>
+  <details class="adder">
+    <summary>Update from in-game chat</summary>
+    <p class="muted small">Run this in chat, then type what it prints here, one item per line.
+      Add <code>grey</code>, <code>white</code>, <code>green</code> or <code>blue</code> after a
+      name to colour it.</p>
+    <pre class="macro">/run for i=1,19 do local l=GetInventoryItemLink("player",i) if l then print(i,l) end end</pre>
+    <form method="post" action="{{ url_for('toon_gear_save', char_id=c['id']) }}">
+      <input type="hidden" name="spec" value="{{ spec }}">
+      <textarea name="gear" rows="10" aria-label="Equipped items">{{ gear_text }}</textarea>
+      <div class="row"><button type="submit">Save gear</button></div>
+    </form>
+  </details>
+</section>
+
 <div class="strip">
   {% for big, label in s.stats %}
     <div class="stat wide"><div class="stat-n">{{ big }}</div>
@@ -39,9 +86,10 @@
       <thead><tr><th>Slot</th><th>Item</th><th>From</th><th>Note</th></tr></thead>
       <tbody>
       {% for slot, item, src, where, note in rows %}
-        <tr>
+        <tr class="{{ 'hit' if item in worn_names }}">
           <td class="muted small">{{ slot }}</td>
-          <td><a class="wh" href="{{ wowhead(item) }}" target="_blank" rel="noopener"><b>{{ item }}</b></a></td>
+          <td><a class="wh" href="{{ wowhead(item) }}" target="_blank" rel="noopener"><b>{{ item }}</b></a>
+            {% if item in worn_names %}<span class="pill tick">Wearing</span>{% endif %}</td>
           <td class="small">{{ src }}<div class="src">{{ where }}</div></td>
           <td class="muted small">{{ note }}</td>
         </tr>
@@ -97,6 +145,15 @@
   a.chip.wh.mine { border-color: var(--gold); background: var(--gold-soft); }
   .tabs a { color: var(--muted); }
   .tabs a.on { color: var(--gold); }
+  /* item quality colours for links Wowhead can't resolve */
+  a.wh.q0 { color: #9d9d9d; } a.wh.q1 { color: var(--ink); }
+  a.wh.q2 { color: var(--ok); } a.wh.q3 { color: #0070dd; } a.wh.q4 { color: #a335ee; }
+  tr.hit td:first-child { box-shadow: inset 3px 0 0 var(--ok); }
+  tr.gap td { opacity: .8; }
+  .pill.tick { margin-left: 6px; color: var(--ok); border: 1px solid var(--ok); }
+  pre.macro { white-space: pre-wrap; word-break: break-all; font-size: 12px;
+    background: var(--panel); border: 1px solid var(--line); padding: 8px; border-radius: 4px; }
+  table.worn td:nth-child(2) { min-width: 220px; }
 </style>
 <!-- Wowhead hover tooltips; colour item links by quality and add their icons -->
 <script>var whTooltips = {colorLinks: true, iconizeLinks: true, iconSize: 'small', renameLinks: false};</script>

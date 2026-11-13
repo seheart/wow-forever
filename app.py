@@ -1,5 +1,7 @@
 """Seth's WoW Forever Planner — prep board, toons and their gear. Flask + SQLite."""
+import json
 import random
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -80,7 +82,11 @@ def init_db():
             professions TEXT DEFAULT '',
             priority INTEGER DEFAULT 1,
             reserved INTEGER DEFAULT 0,
-            notes TEXT DEFAULT ''
+            notes TEXT DEFAULT '',
+            level INTEGER DEFAULT 0,      -- 0 = not made yet
+            xp INTEGER DEFAULT 0,         -- % of the way to the next level
+            stats TEXT DEFAULT '',        -- JSON snapshot of the character sheet
+            gear TEXT DEFAULT ''          -- JSON {inventory slot id: {name, q}} of what's worn
         );
         -- ordered levelling plan per character, tickable as you go
         CREATE TABLE IF NOT EXISTS plan (
@@ -100,6 +106,12 @@ def init_db():
         );
         """
     )
+    # columns added after the first release
+    have = {r[1] for r in con.execute("PRAGMA table_info(characters)")}
+    for col, decl in (("level", "INTEGER DEFAULT 0"), ("xp", "INTEGER DEFAULT 0"), ("stats", "TEXT DEFAULT ''"),
+                      ("gear", "TEXT DEFAULT ''")):
+        if col not in have:
+            con.execute(f"ALTER TABLE characters ADD COLUMN {col} {decl}")
     con.commit()
     if not con.execute("SELECT 1 FROM races LIMIT 1").fetchone():
         seed(con)
@@ -259,6 +271,23 @@ def countdowns():
 @app.context_processor
 def inject_nav():
     return {"ruleset": RULESET}
+
+
+# character-sheet snapshot, in the order the in-game sheet lists them
+STAT_KEYS = [
+    ("health", "Health"), ("mana", "Mana"), ("move", "Movement speed"),
+    ("str", "Strength"), ("agi", "Agility"), ("sta", "Stamina"),
+    ("int", "Intellect"), ("spi", "Spirit"),
+    ("mh", "Main hand"), ("ap", "Attack power"),
+]
+
+
+def load_stats(raw):
+    try:
+        d = json.loads(raw or "{}")
+    except ValueError:
+        d = {}
+    return d if isinstance(d, dict) else {}
 
 
 # ---------- routes ----------
@@ -494,6 +523,56 @@ def wowhead_url(name):
 app.jinja_env.globals["wowhead"] = wowhead_url
 
 
+# In-game inventory slot ids (what GetInventoryItemLink prints) → name, and the
+# slot label the BiS tables use for it.
+INV_SLOTS = {
+    1: ("Head", "Head"), 2: ("Neck", "Neck"), 3: ("Shoulder", "Shoulder"),
+    15: ("Back", "Back"), 5: ("Chest", "Chest"), 9: ("Wrist", "Wrist"),
+    10: ("Hands", "Hands"), 6: ("Waist", "Waist"), 7: ("Legs", "Legs"),
+    8: ("Feet", "Feet"), 11: ("Finger 1", "Finger"), 12: ("Finger 2", "Finger"),
+    13: ("Trinket 1", "Trinket"), 14: ("Trinket 2", "Trinket"),
+    16: ("Main hand", "Main Hand (2H)"), 17: ("Off hand", "Off Hand"),
+    18: ("Relic", "Relic"),
+}
+# 4 shirt and 19 tabard are cosmetic and ignored.
+QUALITIES = {"poor": 0, "grey": 0, "gray": 0, "common": 1, "white": 1,
+             "uncommon": 2, "green": 2, "rare": 3, "blue": 3, "epic": 4, "purple": 4}
+
+
+def load_gear(raw):
+    try:
+        d = json.loads(raw or "{}")
+    except ValueError:
+        return {}
+    return {int(k): v for k, v in d.items() if str(k).isdigit() and isinstance(v, dict)}
+
+
+def parse_gear(text, old):
+    """Lines as the /run macro prints them: '5 [Tanned Leather Jerkin]', optionally
+    followed by a quality word ('8 Warped Leather Boots grey'). Keeps a known item's
+    quality when the line doesn't give one."""
+    out = {}
+    for line in (text or "").splitlines():
+        m = re.match(r"\s*(\d+)\s+\[?([^\]]+?)\]?\s*(?:\(?(\w+)\)?)?\s*$", line)
+        if not m:
+            continue
+        slot, name, q = int(m[1]), m[2].strip(), (m[3] or "").lower()
+        if q and q not in QUALITIES:      # last word was part of the name
+            name, q = f"{name} {m[3]}".strip(), ""
+        if slot not in INV_SLOTS or not name:
+            continue
+        prev = old.get(slot, {})
+        quality = QUALITIES.get(q, prev.get("q") if prev.get("name") == name else None)
+        out[slot] = {"name": name, "q": quality}
+    return out
+
+
+def gear_text(worn):
+    names = {v: k for k, v in QUALITIES.items() if k in ("grey", "white", "green", "blue", "purple")}
+    return "\n".join(f"{s} {v['name']}" + (f" {names[v['q']]}" if v.get("q") in names else "")
+                      for s, v in sorted(worn.items()))
+
+
 # Gear lives on the toon: pick the list by class. Add a class here to give its toons a page.
 GEAR_BY_CLASS = {"druid": GEAR_SPECS}
 
@@ -517,8 +596,28 @@ def toon_gear(char_id):
     spec = request.args.get("spec") or default_spec(c["spec"], specs)
     if spec not in specs:
         spec = default_spec(c["spec"], specs)
+    worn = load_gear(c["gear"])
+    s = specs[spec]
+    bis = {}                                    # BiS slot label → items listed for it
+    for _, _, rows in s["sections"]:
+        for r in rows:
+            bis.setdefault(r[0], []).append(r[1])
+    worn_names = {v["name"] for v in worn.values()}
     return render_template("gear.html", active="toons", c=c, specs=specs, spec=spec,
-                           s=specs[spec], sources=GEAR_SOURCES)
+                           s=s, sources=GEAR_SOURCES, worn=worn, worn_names=worn_names,
+                           inv_slots=INV_SLOTS, bis=bis, gear_text=gear_text(worn))
+
+
+@app.post("/toons/<int:char_id>/gear")
+def toon_gear_save(char_id):
+    c = db().execute("SELECT gear FROM characters WHERE id = ?", (char_id,)).fetchone()
+    if c is None:
+        abort(404)
+    worn = parse_gear(request.form.get("gear", ""), load_gear(c["gear"]))
+    db().execute("UPDATE characters SET gear = ? WHERE id = ?",
+                 (json.dumps({str(k): v for k, v in worn.items()}), char_id))
+    db().commit()
+    return redirect(url_for("toon_gear", char_id=char_id, spec=request.form.get("spec") or None))
 
 
 @app.get("/gear")
@@ -561,6 +660,7 @@ def toon(char_id):
     # notes are kept as one field, split into blocks on ||
     blocks = [b.strip() for b in (c["notes"] or "").split("||") if b.strip()]
     return render_template("toon.html", active="toons", c=c, race=race, racials=racials,
+                           stats=load_stats(c["stats"]), stat_keys=STAT_KEYS,
                            klasses=klasses, playable=playable, blocks=blocks, plan=plan,
                            has_gear=(c["klass"] or "").lower() in GEAR_BY_CLASS)
 
@@ -568,13 +668,16 @@ def toon(char_id):
 @app.post("/toons/<int:char_id>/edit")
 def toon_edit(char_id):
     f = request.form
+    stats = json.dumps({k: f.get(f"stat_{k}", "").strip() for k, _ in STAT_KEYS
+                        if f.get(f"stat_{k}", "").strip()})
     db().execute(
         "UPDATE characters SET name = ?, race = ?, klass = ?, spec = ?, purpose = ?, "
-        "professions = ?, priority = ?, notes = ? WHERE id = ?",
+        "professions = ?, priority = ?, notes = ?, level = ?, xp = ?, stats = ? WHERE id = ?",
         (f.get("name", "").strip(), f.get("race", "").strip(), f.get("klass", "").strip(),
          f.get("spec", "").strip(), f.get("purpose", "").strip(),
          f.get("professions", "").strip(), int(f.get("priority") or 5),
-         f.get("notes", "").strip(), char_id),
+         f.get("notes", "").strip(), int(f.get("level") or 0),
+         max(0, min(99, int(f.get("xp") or 0))), stats, char_id),
     )
     db().commit()
     return redirect(url_for("toon", char_id=char_id))

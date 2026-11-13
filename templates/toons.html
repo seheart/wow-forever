@@ -15,7 +15,7 @@
         <span class="pill {{ 'confirmed' if c['reserved'] else 'unconfirmed' }}">
           {{ 'reserved' if c['reserved'] else 'not reserved' }}</span>
       </div>
-      <div class="toon-line">{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}</div>
+      <div class="toon-line">{% if c['level'] %}Lvl {{ c['level'] }} {% endif %}{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}</div>
       {% if c['purpose'] %}<div class="toon-purpose">{{ c['purpose'] }}</div>{% endif %}
       {% if c['professions'] %}<div class="toon-prof">{{ c['professions'] }}</div>{% endif %}
       {% if c['notes'] %}

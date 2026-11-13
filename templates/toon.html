@@ -9,7 +9,7 @@
     <div>
       <h1>{{ c['name'] or 'Unnamed' }}</h1>
       <p class="sub">
-        {{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}
+        {% if c['level'] %}Level {{ c['level'] }} {% endif %}{{ c['race'] }} {{ c['klass'] }}{% if c['spec'] %} · {{ c['spec'] }}{% endif %}
         {% if c['purpose'] %}<br><span class="gold">{{ c['purpose'] }}</span>{% endif %}
       </p>
     </div>
@@ -26,6 +26,14 @@
 {% endif %}
 
 <div class="strip">
+  {% if c['level'] %}
+    <div class="stat">
+      <div class="stat-n">{{ c['level'] }}</div>
+      <div class="stat-l">level · {{ c['xp'] }}% to {{ c['level'] + 1 }}</div>
+      <div class="xpbar" role="progressbar" aria-valuenow="{{ c['xp'] }}" aria-valuemin="0"
+           aria-valuemax="100" aria-label="XP to next level"><span style="width: {{ c['xp'] }}%"></span></div>
+    </div>
+  {% endif %}
   <div class="stat">
     <div class="stat-n">{{ 'Yes' if c['reserved'] else 'No' }}</div>
     <div class="stat-l">name reserved</div>
@@ -47,6 +55,17 @@
     </div>
   {% endif %}
 </div>
+
+{% if stats %}
+  <div class="panel-head section-head"><h2>Character sheet</h2></div>
+  <section class="panel">
+    <dl class="sheet">
+      {% for k, label in stat_keys if stats.get(k) %}
+        <div><dt>{{ label }}</dt><dd>{{ stats[k] }}</dd></div>
+      {% endfor %}
+    </dl>
+  </section>
+{% endif %}
 
 {% if has_gear %}
   <div class="panel-head section-head">
@@ -140,6 +159,16 @@
       <input name="professions" value="{{ c['professions'] }}" placeholder="Professions" size="24">
       <input name="priority" type="number" value="{{ c['priority'] }}" min="1" max="9"
              aria-label="Priority">
+      <input name="level" type="number" value="{{ c['level'] or '' }}" min="0" max="80"
+             placeholder="Level" aria-label="Level">
+      <input name="xp" type="number" value="{{ c['xp'] or '' }}" min="0" max="99"
+             placeholder="XP %" aria-label="XP percent to next level">
+    </div>
+    <div class="row">
+      {% for k, label in stat_keys %}
+        <input name="stat_{{ k }}" value="{{ stats.get(k, '') }}" placeholder="{{ label }}"
+               aria-label="{{ label }}" size="9">
+      {% endfor %}
     </div>
     <textarea name="notes" rows="10" aria-label="Notes"
               placeholder="Notes — split sections with ||">{{ c['notes'] }}</textarea>
